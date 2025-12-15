@@ -1,4 +1,4 @@
-#include "terekhov_d_horizontal_matrix_vector/seq/include/ops_seq.hpp"
+#include "Terekhov_D_Horizontal_matrix_vector/seq/include/ops_seq.hpp"
 
 #include <cstddef>
 #include <utility>
