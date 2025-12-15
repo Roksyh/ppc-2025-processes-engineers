@@ -32,7 +32,6 @@ class TerekhovDHorizontalMatrixVectorFuncTests : public ppc::util::BaseRunFuncTe
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-
     if (output_data.size() != expected_.size()) {
       return false;
     }
@@ -101,8 +100,8 @@ const std::array<TestType, 22> kFunctionalTests = {
     std::make_tuple(11, std::vector<std::vector<double>>{{1, 2}, {3, 4}, {5, 6}}, std::vector<double>{7, 8},
                     std::vector<double>{23, 53, 83}),
 
-    std::make_tuple(12, std::vector<std::vector<double>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
-                    std::vector<double>{1, 2, 3}, std::vector<double>{1, 2, 3}),
+    std::make_tuple(12, std::vector<std::vector<double>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, std::vector<double>{1, 2, 3},
+                    std::vector<double>{1, 2, 3}),
 
     std::make_tuple(13, std::vector<std::vector<double>>{{0.5, 0.5}, {0.5, 0.5}}, std::vector<double>{2, 4},
                     std::vector<double>{3, 3}),
@@ -127,8 +126,8 @@ const std::array<TestType, 22> kFunctionalTests = {
     std::make_tuple(20, std::vector<std::vector<double>>{{1, 0}, {0, 0}}, std::vector<double>{0, 1},
                     std::vector<double>{0, 0}),
 
-    std::make_tuple(21, std::vector<std::vector<double>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
-                    std::vector<double>{5, 6, 7}, std::vector<double>{5, 6, 7}),
+    std::make_tuple(21, std::vector<std::vector<double>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, std::vector<double>{5, 6, 7},
+                    std::vector<double>{5, 6, 7}),
 
     std::make_tuple(22, std::vector<std::vector<double>>{{1, 2}, {3, 4}}, std::vector<double>{0, 0},
                     std::vector<double>{0, 0})};
@@ -146,8 +145,8 @@ const std::array<TestType, 10> kCoverageTests = {
 
     std::make_tuple(27, std::vector<std::vector<double>>{{0.5}}, std::vector<double>{2}, std::vector<double>{1}),
 
-    std::make_tuple(28, std::vector<std::vector<double>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}},
-                    std::vector<double>{5, 6, 7}, std::vector<double>{5, 6, 7}),
+    std::make_tuple(28, std::vector<std::vector<double>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, std::vector<double>{5, 6, 7},
+                    std::vector<double>{5, 6, 7}),
 
     std::make_tuple(29, std::vector<std::vector<double>>{{2, 4}, {6, 8}}, std::vector<double>{0.5, 0.5},
                     std::vector<double>{3, 7}),
@@ -161,17 +160,17 @@ const std::array<TestType, 10> kCoverageTests = {
     std::make_tuple(32, std::vector<std::vector<double>>{{1, 2, 3}}, std::vector<double>{4, 5, 6},
                     std::vector<double>{32})};
 
-const auto kFunctionalTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorMPI, InType>(
-                       kFunctionalTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector),
-                   ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorSEQ, InType>(
-                       kFunctionalTests,PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector));
+const auto kFunctionalTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorMPI, InType>(
+        kFunctionalTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector),
+    ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorSEQ, InType>(
+        kFunctionalTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector));
 
-const auto kCoverageTasksList =
-    std::tuple_cat(ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorMPI, InType>(
-                       kCoverageTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector),
-                   ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorSEQ, InType>(
-                       kCoverageTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector));
+const auto kCoverageTasksList = std::tuple_cat(
+    ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorMPI, InType>(
+        kCoverageTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector),
+    ppc::util::AddFuncTask<terekhov_d_horizontal_matrix_vector::TerekhovDHorizontalMatrixVectorSEQ, InType>(
+        kCoverageTests, PPC_SETTINGS_Terekhov_D_Horizontal_matrix_vector));
 
 inline const auto kFunctionalGtestValues = ppc::util::ExpandToValues(kFunctionalTasksList);
 inline const auto kCoverageGtestValues = ppc::util::ExpandToValues(kCoverageTasksList);

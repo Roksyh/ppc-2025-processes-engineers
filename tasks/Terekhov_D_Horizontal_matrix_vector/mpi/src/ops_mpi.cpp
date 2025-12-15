@@ -143,7 +143,7 @@ void TerekhovDHorizontalMatrixVectorMPI::PrepareAndBroadcastVector(std::vector<d
 }
 
 void TerekhovDHorizontalMatrixVectorMPI::FillLocalAFlat(const std::vector<int> &my_row_indices,
-                                                       std::vector<double> &local_a_flat, int cols_a) {
+                                                        std::vector<double> &local_a_flat, int cols_a) {
   for (size_t idx = 0; idx < my_row_indices.size(); ++idx) {
     int global_row = my_row_indices[idx];
     for (int j = 0; j < cols_a; ++j) {
@@ -184,7 +184,7 @@ std::vector<int> TerekhovDHorizontalMatrixVectorMPI::GetRowsForProcess(int proce
 }
 
 void TerekhovDHorizontalMatrixVectorMPI::ReceiveRowsFromRoot(int &local_rows, std::vector<int> &my_row_indices,
-                                                            std::vector<double> &local_a_flat, int cols_a) {
+                                                             std::vector<double> &local_a_flat, int cols_a) {
   MPI_Recv(&local_rows, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
   if (local_rows > 0) {
@@ -197,8 +197,8 @@ void TerekhovDHorizontalMatrixVectorMPI::ReceiveRowsFromRoot(int &local_rows, st
 }
 
 void TerekhovDHorizontalMatrixVectorMPI::DistributeMatrixAData(std::vector<int> &my_row_indices,
-                                                              std::vector<double> &local_a_flat, int &local_rows,
-                                                              int rows_a, int cols_a) {
+                                                               std::vector<double> &local_a_flat, int &local_rows,
+                                                               int rows_a, int cols_a) {
   local_rows = (rows_a / world_size_) + (rank_ < (rows_a % world_size_) ? 1 : 0);
 
   my_row_indices = GetRowsForProcess(rank_, rows_a);
@@ -222,15 +222,16 @@ void TerekhovDHorizontalMatrixVectorMPI::DistributeMatrixAData(std::vector<int> 
 }
 
 void TerekhovDHorizontalMatrixVectorMPI::CollectLocalResults(const std::vector<int> &my_row_indices,
-                                                            const std::vector<double> &local_result_flat,
-                                                            std::vector<double> &final_result_flat) {
+                                                             const std::vector<double> &local_result_flat,
+                                                             std::vector<double> &final_result_flat) {
   for (size_t idx = 0; idx < my_row_indices.size(); ++idx) {
     int global_row = my_row_indices[idx];
     final_result_flat[static_cast<size_t>(global_row)] = local_result_flat[idx];
   }
 }
 
-void TerekhovDHorizontalMatrixVectorMPI::ReceiveResultsFromProcess(int src, std::vector<double> &final_result_flat) const {
+void TerekhovDHorizontalMatrixVectorMPI::ReceiveResultsFromProcess(int src,
+                                                                   std::vector<double> &final_result_flat) const {
   int rows_a = static_cast<int>(final_result_flat.size());
   std::vector<int> src_rows = GetRowsForProcess(src, rows_a);
   int src_row_count = static_cast<int>(src_rows.size());
@@ -246,7 +247,8 @@ void TerekhovDHorizontalMatrixVectorMPI::ReceiveResultsFromProcess(int src, std:
   }
 }
 
-void TerekhovDHorizontalMatrixVectorMPI::SendLocalResults(const std::vector<double> &local_result_flat, int local_rows) {
+void TerekhovDHorizontalMatrixVectorMPI::SendLocalResults(const std::vector<double> &local_result_flat,
+                                                          int local_rows) {
   if (local_rows > 0) {
     std::vector<double> data_copy = local_result_flat;
     MPI_Send(data_copy.data(), local_rows, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
@@ -254,9 +256,9 @@ void TerekhovDHorizontalMatrixVectorMPI::SendLocalResults(const std::vector<doub
 }
 
 void TerekhovDHorizontalMatrixVectorMPI::GatherResults(std::vector<double> &final_result_flat,
-                                                      const std::vector<int> &my_row_indices,
-                                                      const std::vector<double> &local_result_flat, int local_rows,
-                                                      int rows_a) const {
+                                                       const std::vector<int> &my_row_indices,
+                                                       const std::vector<double> &local_result_flat, int local_rows,
+                                                       int rows_a) const {
   if (rank_ == 0) {
     final_result_flat.resize(static_cast<size_t>(rows_a), 0.0);
 
@@ -276,9 +278,9 @@ void TerekhovDHorizontalMatrixVectorMPI::GatherResults(std::vector<double> &fina
 }
 
 void TerekhovDHorizontalMatrixVectorMPI::ComputeLocalMultiplication(const std::vector<double> &local_a_flat,
-                                                                   const std::vector<double> &vector_flat,
-                                                                   std::vector<double> &local_result_flat,
-                                                                   int local_rows, int cols_a) {
+                                                                    const std::vector<double> &vector_flat,
+                                                                    std::vector<double> &local_result_flat,
+                                                                    int local_rows, int cols_a) {
   for (int i = 0; i < local_rows; ++i) {
     const double *a_row = &local_a_flat[static_cast<size_t>(i) * static_cast<size_t>(cols_a)];
     double sum = 0.0;

@@ -2,8 +2,8 @@
 
 #include <vector>
 
-#include "terekhov_d_horizontal_matrix_vector/common/include/common.hpp"
 #include "task/include/task.hpp"
+#include "terekhov_d_horizontal_matrix_vector/common/include/common.hpp"
 
 namespace terekhov_d_horizontal_matrix_vector {
 
@@ -26,8 +26,9 @@ class TerekhovDHorizontalMatrixVectorMPI : public BaseTask {
   void PrepareAndBroadcastVector(std::vector<double> &vector_flat, int vector_size);
   void DistributeMatrixAData(std::vector<int> &my_row_indices, std::vector<double> &local_a_flat, int &local_rows,
                              int rows_a, int cols_a);
-  static void ComputeLocalMultiplication(const std::vector<double> &local_a_flat, const std::vector<double> &vector_flat,
-                                         std::vector<double> &local_result_flat, int local_rows, int cols_a);
+  static void ComputeLocalMultiplication(const std::vector<double> &local_a_flat,
+                                         const std::vector<double> &vector_flat, std::vector<double> &local_result_flat,
+                                         int local_rows, int cols_a);
   void GatherResults(std::vector<double> &final_result_flat, const std::vector<int> &my_row_indices,
                      const std::vector<double> &local_result_flat, int local_rows, int rows_a) const;
 
