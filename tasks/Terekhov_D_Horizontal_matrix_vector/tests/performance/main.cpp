@@ -13,7 +13,7 @@ namespace terekhov_d_horizontal_matrix_vector {
 
 class TerekhovDHorizontalMatrixVectorRunPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
  public:
-  static constexpr size_t kSize = 800;
+  static constexpr size_t kSize = 2000;
 
  protected:
   void SetUp() override {
