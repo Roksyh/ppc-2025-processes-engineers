@@ -1,4 +1,4 @@
-#include "terekhov_d_horizontal_matrix_vector/mpi/include/ops_mpi.hpp"
+#include "Terekhov_D_Horizontal_matrix_vector/mpi/include/ops_mpi.hpp"
 
 #include <mpi.h>
 
@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <vector>
 
-#include "terekhov_d_horizontal_matrix_vector/common/include/common.hpp"
+#include "Terekhov_D_Horizontal_matrix_vector/common/include/common.hpp"
 
 namespace terekhov_d_horizontal_matrix_vector {
 

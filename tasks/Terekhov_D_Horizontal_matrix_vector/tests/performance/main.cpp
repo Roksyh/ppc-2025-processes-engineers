@@ -4,9 +4,9 @@
 #include <utility>
 #include <vector>
 
-#include "terekhov_d_horizontal_matrix_vector/common/include/common.hpp"
-#include "terekhov_d_horizontal_matrix_vector/mpi/include/ops_mpi.hpp"
-#include "terekhov_d_horizontal_matrix_vector/seq/include/ops_seq.hpp"
+#include "Terekhov_D_Horizontal_matrix_vector/common/include/common.hpp"
+#include "Terekhov_D_Horizontal_matrix_vector/mpi/include/ops_mpi.hpp"
+#include "Terekhov_D_Horizontal_matrix_vector/seq/include/ops_seq.hpp"
 #include "util/include/perf_test_util.hpp"
 
 namespace terekhov_d_horizontal_matrix_vector {

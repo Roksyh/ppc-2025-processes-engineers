@@ -2,8 +2,8 @@
 
 #include <vector>
 
+#include "Terekhov_D_Horizontal_matrix_vector/common/include/common.hpp"
 #include "task/include/task.hpp"
-#include "terekhov_d_horizontal_matrix_vector/common/include/common.hpp"
 
 namespace terekhov_d_horizontal_matrix_vector {
 
@@ -48,6 +48,6 @@ class TerekhovDHorizontalMatrixVectorMPI : public BaseTask {
   std::vector<double> result_vector_;
   int rank_ = 0;
   int world_size_ = 1;
-};
+};  // commit 1
 
 }  // namespace terekhov_d_horizontal_matrix_vector
