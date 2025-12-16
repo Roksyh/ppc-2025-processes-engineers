@@ -48,6 +48,6 @@ class TerekhovDHorizontalMatrixVectorMPI : public BaseTask {
   std::vector<double> result_vector_;
   int rank_ = 0;
   int world_size_ = 1;
-};  // commit
+};  // commit 1
 
 }  // namespace terekhov_d_horizontal_matrix_vector
