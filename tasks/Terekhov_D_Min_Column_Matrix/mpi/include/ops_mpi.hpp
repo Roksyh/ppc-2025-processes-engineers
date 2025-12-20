@@ -26,6 +26,6 @@ class TerekhovDTestTaskMPI : public BaseTask {
   int local_rows_{0};
   std::size_t cols_{0};
   std::vector<int> local_buffer_;
-};
+};  // commit
 
 }  // namespace terekhov_d_a_test_task_processes
