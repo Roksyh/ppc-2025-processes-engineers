@@ -1,9 +1,7 @@
 #include "Terekhov_D_Min_Column_Matrix/seq/include/ops_seq.hpp"
 
-#include <algorithm>
+#include <climits>
 #include <cstddef>
-#include <limits>
-#include <ranges>
 #include <vector>
 
 #include "Terekhov_D_Min_Column_Matrix/common/include/common.hpp"
@@ -12,33 +10,47 @@ namespace terekhov_d_a_test_task_processes {
 
 TerekhovDTestTaskSEQ::TerekhovDTestTaskSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
-  InType temp_in = in;
-  GetInput().swap(temp_in);
-  OutType temp_out;
-  GetOutput().swap(temp_out);
+
+  if (!in.empty()) {
+    GetInput() = in;
+  } else {
+    GetInput() = InType{};
+  }
+
+  GetOutput() = OutType{};
 }
 
 bool TerekhovDTestTaskSEQ::ValidationImpl() {
-  const InType &matrix = GetInput();
-  if (matrix.empty()) {
+  const auto &input = GetInput();
+  if (input.empty()) {
     return false;
   }
 
-  const std::size_t cols = matrix[0].size();
+  const std::size_t cols = input[0].size();
   if (cols == 0) {
     return false;
   }
 
-  return std::ranges::all_of(matrix, [cols](const auto &row) { return row.size() == cols; });
+  for (const auto &row : input) {
+    if (row.size() != cols) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool TerekhovDTestTaskSEQ::PreProcessingImpl() {
-  GetOutput() = OutType{};
+  GetOutput().clear();
   return true;
 }
 
 bool TerekhovDTestTaskSEQ::RunImpl() {
-  const InType &matrix = GetInput();
+  const auto &matrix = GetInput();
+  auto &result = GetOutput();
+
+  result.clear();
+
   if (matrix.empty()) {
     return false;
   }
@@ -46,26 +58,21 @@ bool TerekhovDTestTaskSEQ::RunImpl() {
   const std::size_t rows = matrix.size();
   const std::size_t cols = matrix[0].size();
 
-  OutType result(cols, std::numeric_limits<int>::max());
+  result.assign(cols, INT_MAX);
 
-  for (std::size_t row_idx = 0; row_idx < rows; ++row_idx) {
-    for (std::size_t col_idx = 0; col_idx < cols; ++col_idx) {
-      result[col_idx] = std::min(matrix[row_idx][col_idx], result[col_idx]);
+  for (std::size_t i = 0; i < rows; ++i) {
+    for (std::size_t j = 0; j < cols; ++j) {
+      if (matrix[i][j] < result[j]) {
+        result[j] = matrix[i][j];
+      }
     }
   }
 
-  GetOutput() = result;
   return true;
 }
 
 bool TerekhovDTestTaskSEQ::PostProcessingImpl() {
-  const InType &matrix = GetInput();
-  if (matrix.empty()) {
-    return false;
-  }
-
-  const OutType &out = GetOutput();
-  return out.size() == matrix[0].size();
+  return true;
 }
 
 }  // namespace terekhov_d_a_test_task_processes

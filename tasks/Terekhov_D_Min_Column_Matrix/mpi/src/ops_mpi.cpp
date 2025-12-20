@@ -3,8 +3,10 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <array>
+#include <climits>
 #include <cstddef>
-#include <limits>
+#include <utility>
 #include <vector>
 
 #include "Terekhov_D_Min_Column_Matrix/common/include/common.hpp"
@@ -13,23 +15,28 @@ namespace terekhov_d_a_test_task_processes {
 
 TerekhovDTestTaskMPI::TerekhovDTestTaskMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
-  InType temp_in = in;
-  GetInput().swap(temp_in);
-  OutType temp_out;
-  GetOutput().swap(temp_out);
+
+  if (!in.empty()) {
+    GetInput() = in;
+  } else {
+    GetInput() = InType{};
+  }
+
+  GetOutput() = OutType{};
 }
 
-static bool ValidateMatrixOnRoot(const terekhov_d_a_test_task_processes::InType &matrix) {
-  if (matrix.empty()) {
+bool TerekhovDTestTaskMPI::ValidationImpl() {
+  const auto &input = GetInput();
+  if (input.empty()) {
     return false;
   }
 
-  const std::size_t cols = matrix[0].size();
+  const std::size_t cols = input[0].size();
   if (cols == 0) {
     return false;
   }
 
-  for (const auto &row : matrix) {
+  for (const auto &row : input) {
     if (row.size() != cols) {
       return false;
     }
@@ -38,22 +45,13 @@ static bool ValidateMatrixOnRoot(const terekhov_d_a_test_task_processes::InType 
   return true;
 }
 
-bool TerekhovDTestTaskMPI::ValidationImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
-
-  int valid_flag = 0;
-
-  if (world_rank_ == 0) {
-    valid_flag = ValidateMatrixOnRoot(GetInput()) ? 1 : 0;
-  }
-
-  MPI_Bcast(&valid_flag, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  return valid_flag == 1;
+bool TerekhovDTestTaskMPI::PreProcessingImpl() {
+  GetOutput().clear();
+  return true;
 }
 
-static std::vector<int> FlattenMatrix(const terekhov_d_a_test_task_processes::InType &matrix) {
-  if (matrix.empty()) {
+std::vector<int> TerekhovDTestTaskMPI::FlattenMatrix(const std::vector<std::vector<int>> &matrix) {
+  if (matrix.empty() || matrix[0].empty()) {
     return {};
   }
 
@@ -70,114 +68,93 @@ static std::vector<int> FlattenMatrix(const terekhov_d_a_test_task_processes::In
   return flat;
 }
 
-bool TerekhovDTestTaskMPI::PreProcessingImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
+std::pair<int, int> TerekhovDTestTaskMPI::PrepareDimensions(const std::vector<std::vector<int>> &matrix, int rank) {
+  int total_rows = 0;
+  int total_cols = 0;
 
-  int rows = 0;
-  int cols = 0;
-
-  if (world_rank_ == 0) {
-    const InType &matrix = GetInput();
-    rows = static_cast<int>(matrix.size());
-    cols = matrix.empty() ? 0 : static_cast<int>(matrix[0].size());
+  if (rank == 0) {
+    total_rows = static_cast<int>(matrix.size());
+    total_cols = (total_rows > 0) ? static_cast<int>(matrix[0].size()) : 0;
   }
 
-  MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&cols, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  std::array<int, 2> dimensions = {total_rows, total_cols};
+  MPI_Bcast(dimensions.data(), 2, MPI_INT, 0, MPI_COMM_WORLD);
 
-  cols_ = static_cast<std::size_t>(cols);
-
-  if (rows == 0 || cols == 0) {
-    local_rows_ = 0;
-    local_buffer_.clear();
-    GetOutput().clear();
-    return true;
-  }
-
-  const int rows_per_process = rows / world_size_;
-  const int remainder = rows % world_size_;
-
-  std::vector<int> counts_rows(world_size_);
-  std::vector<int> displs_rows(world_size_);
-
-  int current_displ = 0;
-  for (int rank = 0; rank < world_size_; ++rank) {
-    const int rows_for_rank = rows_per_process + (rank < remainder ? 1 : 0);
-    counts_rows[rank] = rows_for_rank;
-    displs_rows[rank] = current_displ;
-    current_displ += rows_for_rank;
-  }
-
-  local_rows_ = counts_rows[world_rank_];
-  const int local_count_elems = local_rows_ * cols;
-  local_buffer_.assign(local_count_elems, 0);
-
-  if (world_rank_ == 0) {
-    std::vector<int> flat = FlattenMatrix(GetInput());
-
-    std::vector<int> counts_elems(world_size_);
-    std::vector<int> displs_elems(world_size_);
-
-    for (int rank = 0; rank < world_size_; ++rank) {
-      counts_elems[rank] = counts_rows[rank] * cols;
-      displs_elems[rank] = displs_rows[rank] * cols;
-    }
-
-    MPI_Scatterv(flat.data(), counts_elems.data(), displs_elems.data(), MPI_INT, local_buffer_.data(),
-                 local_count_elems, MPI_INT, 0, MPI_COMM_WORLD);
-  } else {
-    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_INT, local_buffer_.data(), local_count_elems, MPI_INT, 0,
-                 MPI_COMM_WORLD);
-  }
-
-  GetOutput().clear();
-  return true;
+  return {dimensions[0], dimensions[1]};
 }
 
 bool TerekhovDTestTaskMPI::RunImpl() {
-  if (cols_ == 0) {
-    GetOutput().clear();
+  int rank = 0;
+  int size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  const auto &matrix = GetInput();
+
+  auto [total_rows, total_cols] = PrepareDimensions(matrix, rank);
+
+  if (total_rows == 0 || total_cols == 0) {
+    GetOutput() = OutType{};
     return true;
   }
 
-  std::vector<int> local_min(cols_, std::numeric_limits<int>::max());
+  const int rows_per_process = total_rows / size;
+  const int remainder = total_rows % size;
+  const int my_rows = rows_per_process + (rank < remainder ? 1 : 0);
 
-  if (local_rows_ > 0) {
-    for (int row_idx = 0; row_idx < local_rows_; ++row_idx) {
-      const int base_idx = row_idx * static_cast<int>(cols_);
-      for (std::size_t col_idx = 0; col_idx < cols_; ++col_idx) {
-        const int value = local_buffer_[base_idx + static_cast<int>(col_idx)];
-        if (value < local_min[col_idx]) {
-          local_min[col_idx] = value;
+  int offset = 0;
+  for (int i = 0; i < rank; ++i) {
+    const int rows_for_i = rows_per_process + (i < remainder ? 1 : 0);
+    offset += rows_for_i;
+  }
+
+  std::vector<int> local_data(my_rows * total_cols, 0);
+
+  if (rank == 0) {
+    std::vector<int> flat_matrix = FlattenMatrix(matrix);
+
+    std::vector<int> send_counts(size);
+    std::vector<int> displacements(size);
+
+    int current_displ = 0;
+    for (int i = 0; i < size; ++i) {
+      const int rows_for_i = rows_per_process + (i < remainder ? 1 : 0);
+      send_counts[i] = rows_for_i * total_cols;
+      displacements[i] = current_displ;
+      current_displ += rows_for_i * total_cols;
+    }
+
+    MPI_Scatterv(flat_matrix.data(), send_counts.data(), displacements.data(), MPI_INT, local_data.data(),
+                 my_rows * total_cols, MPI_INT, 0, MPI_COMM_WORLD);
+  } else {
+    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_INT, local_data.data(), my_rows * total_cols, MPI_INT, 0,
+                 MPI_COMM_WORLD);
+  }
+
+  std::vector<int> local_minima(total_cols, INT_MAX);
+
+  if (my_rows > 0) {
+    for (int i = 0; i < my_rows; ++i) {
+      for (int j = 0; j < total_cols; ++j) {
+        const int idx = i * total_cols + j;
+        const int val = local_data[idx];
+        if (val < local_minima[j]) {
+          local_minima[j] = val;
         }
       }
     }
   }
 
-  std::vector<int> global_min(cols_, std::numeric_limits<int>::max());
+  std::vector<int> global_minima(total_cols, INT_MAX);
+  MPI_Allreduce(local_minima.data(), global_minima.data(), total_cols, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
-  MPI_Allreduce(local_min.data(), global_min.data(), static_cast<int>(cols_), MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+  GetOutput() = std::move(global_minima);
 
-  GetOutput() = global_min;
   return true;
 }
 
 bool TerekhovDTestTaskMPI::PostProcessingImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_);
-
-  if (world_rank_ != 0) {
-    return true;
-  }
-
-  const OutType &out = GetOutput();
-  const InType &matrix = GetInput();
-
-  if (matrix.empty()) {
-    return out.empty();
-  }
-
-  return out.size() == matrix[0].size();
+  return true;
 }
 
 }  // namespace terekhov_d_a_test_task_processes

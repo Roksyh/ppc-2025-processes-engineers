@@ -1,11 +1,9 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <cmath>
+#include <climits>
 #include <cstddef>
-#include <limits>
+#include <iostream>
 #include <random>
-#include <vector>
 
 #include "Terekhov_D_Min_Column_Matrix/common/include/common.hpp"
 #include "Terekhov_D_Min_Column_Matrix/mpi/include/ops_mpi.hpp"
@@ -15,39 +13,72 @@
 namespace terekhov_d_a_test_task_processes {
 
 class MinColumnRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
- public:
+ protected:
   void SetUp() override {
-    constexpr int kRows = 15000;
-    constexpr int kCols = 15000;
+    constexpr int kMatrixSizeRows = 15000;
+    constexpr int kMatrixSizeCols = 15000;
+    const int rows = kMatrixSizeRows;
+    const int cols = kMatrixSizeCols;
 
-    std::mt19937 gen(42);
+    constexpr int kFixedSeed = 42;
+    std::mt19937 gen(kFixedSeed);
     std::uniform_int_distribution<int> dist(1, 1000000);
 
-    input_data_.resize(kRows);
-    for (int i = 0; i < kRows; ++i) {
-      input_data_[i].resize(kCols);
-      for (int j = 0; j < kCols; ++j) {
-        input_data_[i][j] = dist(gen);
+    input_data_.resize(rows);
+    expected_.assign(cols, INT_MAX);
+
+    for (int i = 0; i < rows; ++i) {
+      input_data_[i].resize(cols);
+      for (int j = 0; j < cols; ++j) {
+        int val = dist(gen);
+        input_data_[i][j] = val;
+        if (val < expected_[j]) {
+          expected_[j] = val;
+        }
       }
     }
 
-    expected_.assign(kCols, std::numeric_limits<int>::max());
-    for (int i = 0; i < kRows; ++i) {
-      for (int j = 0; j < kCols; ++j) {
-        expected_[j] = std::min(input_data_[i][j], expected_[j]);
+#ifdef DEBUG_OUTPUT
+    std::cout << "Generated matrix: " << rows << "x" << cols << std::endl;
+    std::cout << "Expected size: " << expected_.size() << std::endl;
+    if (!expected_.empty()) {
+      std::cout << "First few expected values: ";
+      for (size_t i = 0; i < std::min(expected_.size(), size_t(5)); ++i) {
+        std::cout << expected_[i] << " ";
       }
+      std::cout << std::endl;
     }
+#endif
   }
 
   bool CheckTestOutputData(OutType &output_data) override {
-    if (output_data.size() != expected_.size()) {
+    if (output_data.empty()) {
+#ifdef DEBUG_OUTPUT
+      std::cout << "ERROR: Output data is empty!" << std::endl;
+#endif
       return false;
     }
+
+    if (output_data.size() != expected_.size()) {
+#ifdef DEBUG_OUTPUT
+      std::cout << "ERROR: Size mismatch! Output size: " << output_data.size()
+                << ", Expected size: " << expected_.size() << std::endl;
+#endif
+      return false;
+    }
+
     for (std::size_t i = 0; i < output_data.size(); ++i) {
       if (output_data[i] != expected_[i]) {
+#ifdef DEBUG_OUTPUT
+        if (i == 0) {
+          std::cout << "ERROR at position " << i << ": Output = " << output_data[i] << ", Expected = " << expected_[i]
+                    << std::endl;
+        }
+#endif
         return false;
       }
     }
+
     return true;
   }
 
