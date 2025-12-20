@@ -2,16 +2,84 @@
 
 #include <mpi.h>
 
+#include <algorithm>
 #include <array>
 #include <climits>
 #include <cstddef>
-#include <ranges>
 #include <utility>
 #include <vector>
 
 #include "Terekhov_D_Min_Column_Matrix/common/include/common.hpp"
 
 namespace terekhov_d_a_test_task_processes {
+
+namespace {
+
+std::vector<int> ScatterMatrixData(const std::vector<std::vector<int>> &matrix, int total_rows, int total_cols,
+                                   int size, int rank, int my_rows) {
+  if (size <= 0 || total_rows <= 0 || total_cols <= 0) {
+    return {};
+  }
+
+  const std::size_t local_size = static_cast<std::size_t>(my_rows) * static_cast<std::size_t>(total_cols);
+  std::vector<int> local_data(local_size, 0);
+
+  if (rank == 0) {
+    std::vector<int> flat_matrix = TerekhovDTestTaskMPI::FlattenMatrix(matrix);
+
+    const int rows_per_process = total_rows / size;
+    const int remainder = total_rows % size;
+
+    std::vector<int> send_counts(size);
+    std::vector<int> displacements(size);
+
+    int current_displ = 0;
+    for (int i = 0; i < size; ++i) {
+      const int rows_for_i = rows_per_process + (i < remainder ? 1 : 0);
+      send_counts[i] = rows_for_i * total_cols;
+      displacements[i] = current_displ;
+      current_displ += rows_for_i * total_cols;
+    }
+
+    MPI_Scatterv(flat_matrix.data(), send_counts.data(), displacements.data(), MPI_INT, local_data.data(),
+                 my_rows * total_cols, MPI_INT, 0, MPI_COMM_WORLD);
+  } else {
+    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_INT, local_data.data(), my_rows * total_cols, MPI_INT, 0,
+                 MPI_COMM_WORLD);
+  }
+
+  return local_data;
+}
+
+std::vector<int> ComputeLocalColumnMinima(const std::vector<int> &local_data, int my_rows, int total_cols) {
+  std::vector<int> local_minima(static_cast<std::size_t>(total_cols), INT_MAX);
+
+  if (my_rows > 0 && !local_data.empty()) {
+    for (int i = 0; i < my_rows; ++i) {
+      for (int j = 0; j < total_cols; ++j) {
+        const int idx = (i * total_cols) + j;
+        const int val = local_data[static_cast<std::size_t>(idx)];
+        local_minima[static_cast<std::size_t>(j)] = std::min(val, local_minima[static_cast<std::size_t>(j)]);
+      }
+    }
+  }
+
+  return local_minima;
+}
+
+std::vector<int> ReduceGlobalMinima(const std::vector<int> &local_minima, int total_cols) {
+  if (total_cols <= 0) {
+    return {};
+  }
+
+  std::vector<int> global_minima(static_cast<std::size_t>(total_cols), INT_MAX);
+
+  MPI_Allreduce(local_minima.data(), global_minima.data(), total_cols, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+  return global_minima;
+}
+
+}  // namespace
 
 TerekhovDTestTaskMPI::TerekhovDTestTaskMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
@@ -36,7 +104,13 @@ bool TerekhovDTestTaskMPI::ValidationImpl() {
     return false;
   }
 
-  return std::ranges::all_of(input, [cols](const auto &row) { return row.size() == cols; });
+  for (const auto &row : input) {
+    if (row.size() != cols) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool TerekhovDTestTaskMPI::PreProcessingImpl() {
@@ -75,70 +149,6 @@ std::pair<int, int> TerekhovDTestTaskMPI::PrepareDimensions(const std::vector<st
   MPI_Bcast(dimensions.data(), 2, MPI_INT, 0, MPI_COMM_WORLD);
 
   return {dimensions[0], dimensions[1]};
-}
-
-static std::vector<int> ScatterMatrixData(const std::vector<std::vector<int>> &matrix, int total_rows, int total_cols,
-                                          int size, int rank, int my_rows) {
-  if (size <= 0 || total_rows <= 0 || total_cols <= 0) {
-    return std::vector<int>();
-  }
-
-  const std::size_t local_size = static_cast<std::size_t>(my_rows) * static_cast<std::size_t>(total_cols);
-  std::vector<int> local_data(local_size, 0);
-
-  if (rank == 0) {
-    std::vector<int> flat_matrix = TerekhovDTestTaskMPI::FlattenMatrix(matrix);
-
-    const int rows_per_process = total_rows / size;
-    const int remainder = total_rows % size;
-
-    std::vector<int> send_counts(size);
-    std::vector<int> displacements(size);
-
-    int current_displ = 0;
-    for (int i = 0; i < size; ++i) {
-      const int rows_for_i = rows_per_process + (i < remainder ? 1 : 0);
-      send_counts[i] = rows_for_i * total_cols;
-      displacements[i] = current_displ;
-      current_displ += rows_for_i * total_cols;
-    }
-
-    MPI_Scatterv(flat_matrix.data(), send_counts.data(), displacements.data(), MPI_INT, local_data.data(),
-                 my_rows * total_cols, MPI_INT, 0, MPI_COMM_WORLD);
-  } else {
-    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_INT, local_data.data(), my_rows * total_cols, MPI_INT, 0,
-                 MPI_COMM_WORLD);
-  }
-
-  return local_data;
-}
-
-static std::vector<int> ComputeLocalColumnMinima(const std::vector<int> &local_data, int my_rows, int total_cols) {
-  std::vector<int> local_minima(static_cast<std::size_t>(total_cols), INT_MAX);
-
-  if (my_rows > 0 && !local_data.empty()) {
-    for (int i = 0; i < my_rows; ++i) {
-      for (int j = 0; j < total_cols; ++j) {
-        const int idx = (i * total_cols) + j;
-        const int val = local_data[static_cast<std::size_t>(idx)];
-        local_minima[static_cast<std::size_t>(j)] = std::min(val, local_minima[static_cast<std::size_t>(j)]);
-      }
-    }
-  }
-
-  return local_minima;
-}
-
-static std::vector<int> ReduceGlobalMinima(const std::vector<int> &local_minima, int total_cols) {
-  if (total_cols <= 0) {
-    return std::vector<int>();
-  }
-
-  std::vector<int> global_minima(static_cast<std::size_t>(total_cols), INT_MAX);
-
-  MPI_Allreduce(local_minima.data(), global_minima.data(), total_cols, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-  return global_minima;
 }
 
 bool TerekhovDTestTaskMPI::RunImpl() {

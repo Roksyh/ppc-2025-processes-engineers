@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <random>
@@ -19,7 +20,7 @@ class MinColumnRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType,
     const int rows = kMatrixSizeRows;
     const int cols = kMatrixSizeCols;
 
-    constexpr unsigned int kSeedValue = 42u;
+    constexpr unsigned int kSeedValue = 42U;
     std::seed_seq seed_seq{kSeedValue};
     std::mt19937 gen(seed_seq);
     std::uniform_int_distribution<int> dist(1, 1000000);
