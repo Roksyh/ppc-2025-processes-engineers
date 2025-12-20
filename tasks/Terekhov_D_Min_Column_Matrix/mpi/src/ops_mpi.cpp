@@ -2,10 +2,10 @@
 
 #include <mpi.h>
 
-#include <algorithm>
 #include <array>
 #include <climits>
 #include <cstddef>
+#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -36,13 +36,7 @@ bool TerekhovDTestTaskMPI::ValidationImpl() {
     return false;
   }
 
-  for (const auto &row : input) {
-    if (row.size() != cols) {
-      return false;
-    }
-  }
-
-  return true;
+  return std::ranges::all_of(input, [cols](const auto &row) { return row.size() == cols; });
 }
 
 bool TerekhovDTestTaskMPI::PreProcessingImpl() {
@@ -83,29 +77,20 @@ std::pair<int, int> TerekhovDTestTaskMPI::PrepareDimensions(const std::vector<st
   return {dimensions[0], dimensions[1]};
 }
 
-bool TerekhovDTestTaskMPI::RunImpl() {
-  int rank = 0;
-  int size = 1;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  const auto &matrix = GetInput();
-
-  auto [total_rows, total_cols] = PrepareDimensions(matrix, rank);
-
-  if (total_rows == 0 || total_cols == 0) {
-    GetOutput() = OutType{};
-    return true;
+static std::vector<int> ScatterMatrixData(const std::vector<std::vector<int>> &matrix, int total_rows, int total_cols,
+                                          int size, int rank, int my_rows) {
+  if (size <= 0 || total_rows <= 0 || total_cols <= 0) {
+    return std::vector<int>();
   }
 
-  const int rows_per_process = total_rows / size;
-  const int remainder = total_rows % size;
-  const int my_rows = rows_per_process + (rank < remainder ? 1 : 0);
-
-  std::vector<int> local_data(my_rows * total_cols, 0);
+  const std::size_t local_size = static_cast<std::size_t>(my_rows) * static_cast<std::size_t>(total_cols);
+  std::vector<int> local_data(local_size, 0);
 
   if (rank == 0) {
-    std::vector<int> flat_matrix = FlattenMatrix(matrix);
+    std::vector<int> flat_matrix = TerekhovDTestTaskMPI::FlattenMatrix(matrix);
+
+    const int rows_per_process = total_rows / size;
+    const int remainder = total_rows % size;
 
     std::vector<int> send_counts(size);
     std::vector<int> displacements(size);
@@ -125,22 +110,61 @@ bool TerekhovDTestTaskMPI::RunImpl() {
                  MPI_COMM_WORLD);
   }
 
-  std::vector<int> local_minima(total_cols, INT_MAX);
+  return local_data;
+}
 
-  if (my_rows > 0) {
+static std::vector<int> ComputeLocalColumnMinima(const std::vector<int> &local_data, int my_rows, int total_cols) {
+  std::vector<int> local_minima(static_cast<std::size_t>(total_cols), INT_MAX);
+
+  if (my_rows > 0 && !local_data.empty()) {
     for (int i = 0; i < my_rows; ++i) {
       for (int j = 0; j < total_cols; ++j) {
-        const int idx = i * total_cols + j;
-        const int val = local_data[idx];
-        if (val < local_minima[j]) {
-          local_minima[j] = val;
-        }
+        const int idx = (i * total_cols) + j;
+        const int val = local_data[static_cast<std::size_t>(idx)];
+        local_minima[static_cast<std::size_t>(j)] = std::min(val, local_minima[static_cast<std::size_t>(j)]);
       }
     }
   }
 
-  std::vector<int> global_minima(total_cols, INT_MAX);
+  return local_minima;
+}
+
+static std::vector<int> ReduceGlobalMinima(const std::vector<int> &local_minima, int total_cols) {
+  if (total_cols <= 0) {
+    return std::vector<int>();
+  }
+
+  std::vector<int> global_minima(static_cast<std::size_t>(total_cols), INT_MAX);
+
   MPI_Allreduce(local_minima.data(), global_minima.data(), total_cols, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+  return global_minima;
+}
+
+bool TerekhovDTestTaskMPI::RunImpl() {
+  int rank = 0;
+  int size = 1;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  const auto &matrix = GetInput();
+
+  auto [total_rows, total_cols] = PrepareDimensions(matrix, rank);
+
+  if (total_rows == 0 || total_cols == 0) {
+    GetOutput() = OutType{};
+    return true;
+  }
+
+  const int rows_per_process = total_rows / size;
+  const int remainder = total_rows % size;
+  const int my_rows = rows_per_process + (rank < remainder ? 1 : 0);
+
+  std::vector<int> local_data = ScatterMatrixData(matrix, total_rows, total_cols, size, rank, my_rows);
+
+  std::vector<int> local_minima = ComputeLocalColumnMinima(local_data, my_rows, total_cols);
+
+  std::vector<int> global_minima = ReduceGlobalMinima(local_minima, total_cols);
 
   GetOutput() = std::move(global_minima);
 

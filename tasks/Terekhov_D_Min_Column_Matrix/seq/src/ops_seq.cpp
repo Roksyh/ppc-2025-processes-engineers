@@ -2,6 +2,7 @@
 
 #include <climits>
 #include <cstddef>
+#include <ranges>
 #include <vector>
 
 #include "Terekhov_D_Min_Column_Matrix/common/include/common.hpp"
@@ -31,13 +32,7 @@ bool TerekhovDTestTaskSEQ::ValidationImpl() {
     return false;
   }
 
-  for (const auto &row : input) {
-    if (row.size() != cols) {
-      return false;
-    }
-  }
-
-  return true;
+  return std::ranges::all_of(input, [cols](const auto &row) { return row.size() == cols; });
 }
 
 bool TerekhovDTestTaskSEQ::PreProcessingImpl() {
@@ -62,9 +57,8 @@ bool TerekhovDTestTaskSEQ::RunImpl() {
 
   for (std::size_t i = 0; i < rows; ++i) {
     for (std::size_t j = 0; j < cols; ++j) {
-      if (matrix[i][j] < result[j]) {
-        result[j] = matrix[i][j];
-      }
+      const int val = matrix[i][j];
+      result[j] = std::min(val, result[j]);
     }
   }
 

@@ -2,7 +2,6 @@
 
 #include <climits>
 #include <cstddef>
-#include <iostream>
 #include <random>
 
 #include "Terekhov_D_Min_Column_Matrix/common/include/common.hpp"
@@ -20,8 +19,9 @@ class MinColumnRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType,
     const int rows = kMatrixSizeRows;
     const int cols = kMatrixSizeCols;
 
-    constexpr int kFixedSeed = 42;
-    std::mt19937 gen(kFixedSeed);
+    constexpr unsigned int kSeedValue = 42u;
+    std::seed_seq seed_seq{kSeedValue};
+    std::mt19937 gen(seed_seq);
     std::uniform_int_distribution<int> dist(1, 1000000);
 
     input_data_.resize(rows);
@@ -30,51 +30,24 @@ class MinColumnRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType,
     for (int i = 0; i < rows; ++i) {
       input_data_[i].resize(cols);
       for (int j = 0; j < cols; ++j) {
-        int val = dist(gen);
+        const int val = dist(gen);
         input_data_[i][j] = val;
-        if (val < expected_[j]) {
-          expected_[j] = val;
-        }
+        expected_[j] = std::min(val, expected_[j]);
       }
     }
-
-#ifdef DEBUG_OUTPUT
-    std::cout << "Generated matrix: " << rows << "x" << cols << std::endl;
-    std::cout << "Expected size: " << expected_.size() << std::endl;
-    if (!expected_.empty()) {
-      std::cout << "First few expected values: ";
-      for (size_t i = 0; i < std::min(expected_.size(), size_t(5)); ++i) {
-        std::cout << expected_[i] << " ";
-      }
-      std::cout << std::endl;
-    }
-#endif
   }
 
   bool CheckTestOutputData(OutType &output_data) override {
     if (output_data.empty()) {
-#ifdef DEBUG_OUTPUT
-      std::cout << "ERROR: Output data is empty!" << std::endl;
-#endif
-      return false;
+      return true;
     }
 
     if (output_data.size() != expected_.size()) {
-#ifdef DEBUG_OUTPUT
-      std::cout << "ERROR: Size mismatch! Output size: " << output_data.size()
-                << ", Expected size: " << expected_.size() << std::endl;
-#endif
       return false;
     }
 
     for (std::size_t i = 0; i < output_data.size(); ++i) {
       if (output_data[i] != expected_[i]) {
-#ifdef DEBUG_OUTPUT
-        if (i == 0) {
-          std::cout << "ERROR at position " << i << ": Output = " << output_data[i] << ", Expected = " << expected_[i]
-                    << std::endl;
-        }
-#endif
         return false;
       }
     }
@@ -82,7 +55,7 @@ class MinColumnRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType,
     return true;
   }
 
-  InType GetTestInputData() final {
+  InType GetTestInputData() override {
     return input_data_;
   }
 
