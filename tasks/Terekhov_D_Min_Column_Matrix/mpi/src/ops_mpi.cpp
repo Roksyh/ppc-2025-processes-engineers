@@ -102,12 +102,6 @@ bool TerekhovDTestTaskMPI::RunImpl() {
   const int remainder = total_rows % size;
   const int my_rows = rows_per_process + (rank < remainder ? 1 : 0);
 
-  int offset = 0;
-  for (int i = 0; i < rank; ++i) {
-    const int rows_for_i = rows_per_process + (i < remainder ? 1 : 0);
-    offset += rows_for_i;
-  }
-
   std::vector<int> local_data(my_rows * total_cols, 0);
 
   if (rank == 0) {
