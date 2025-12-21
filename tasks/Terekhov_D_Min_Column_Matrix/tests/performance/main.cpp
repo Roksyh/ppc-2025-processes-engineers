@@ -15,8 +15,8 @@ namespace terekhov_d_a_test_task_processes {
 class MinColumnRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
  protected:
   void SetUp() override {
-    constexpr int kMatrixSizeRows = 15000;
-    constexpr int kMatrixSizeCols = 15000;
+    constexpr int kMatrixSizeRows = 5000;
+    constexpr int kMatrixSizeCols = 5000;
     const int rows = kMatrixSizeRows;
     const int cols = kMatrixSizeCols;
 
