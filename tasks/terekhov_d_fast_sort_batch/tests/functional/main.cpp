@@ -49,14 +49,18 @@ TEST_P(TerekhovDFastSortBatchRunFuncTestsProcesses, FastSortBatchBasicCases) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 7> kTestParam = {
+const std::array<TestType, 11> kTestParam = {
     std::make_tuple(std::vector<int>{}, "empty"),
     std::make_tuple(std::vector<int>{42}, "single"),
+    std::make_tuple(std::vector<int>{2, 1}, "two_elems"),
+    std::make_tuple(std::vector<int>{1, 1, 1, 1}, "all_equal"),
     std::make_tuple(std::vector<int>{1, 2, 3, 4, 5, 6}, "already_sorted"),
     std::make_tuple(std::vector<int>{9, 7, 5, 3, 1, 0, -2}, "reverse_sorted"),
     std::make_tuple(std::vector<int>{5, 1, 5, 3, 3, 2, 1, 0, 0}, "duplicates"),
     std::make_tuple(std::vector<int>{10, -1, 7, 7, 2, -100, 50, 3}, "mixed_values"),
-    std::make_tuple(std::vector<int>{2, 1}, "two_elems"),
+    std::make_tuple(std::vector<int>{1000, -1000, 0, 999, -999}, "large_range"),
+    std::make_tuple(std::vector<int>{1, 3, 2, 5, 4, 7, 6, 9, 8}, "alternating"),
+    std::make_tuple(std::vector<int>{1, 1, 2, 2, 3, 3, 4, 4, 5, 5}, "sorted_duplicates"),
 };
 
 const auto kTestTasksList = std::tuple_cat(

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <random>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
 #include "terekhov_d_fast_sort_batch/mpi/include/ops_mpi.hpp"
@@ -51,13 +52,14 @@ void QuickSort(InType *vec) {
 class FastSortBatchRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
  public:
   void SetUp() override {
-    constexpr std::size_t kSize = 200000;
+    constexpr std::size_t kSize = 262144;
     input_data_.resize(kSize);
 
-    int x = 17;
+    std::mt19937 gen(12345);
+    std::uniform_int_distribution<> dist(-1000000, 1000000);
+
     for (std::size_t i = 0; i < kSize; ++i) {
-      x = (x * 1103515245) + 12345;
-      input_data_[i] = x;
+      input_data_[i] = dist(gen);
     }
 
     expected_ = input_data_;

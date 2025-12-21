@@ -162,7 +162,7 @@ bool TerekhovDFastSortBatchSEQ::RunImpl() {
   }
 
   std::size_t blocks = 1;
-  while ((blocks << 1U) <= n && (blocks << 1U) <= 16) {
+  while ((blocks << 1U) <= n && (blocks << 1U) <= 32) {
     blocks <<= 1U;
   }
 
