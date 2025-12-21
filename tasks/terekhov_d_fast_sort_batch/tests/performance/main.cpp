@@ -13,28 +13,36 @@ namespace terekhov_d_fast_sort_batch {
 namespace {
 
 void QuickSort(InType *vec) {
-  if (vec->empty()) return;
-  
-  auto quick_sort_recursive = [](auto& self, std::vector<int>& a, int left, int right) -> void {
-    if (left >= right) return;
-    
+  if (vec->empty()) {
+    return;
+  }
+
+  auto quick_sort_recursive = [](auto &self, std::vector<int> &a, int left, int right) -> void {
+    if (left >= right) {
+      return;
+    }
+
     int pivot = a[(left + right) / 2];
     int i = left, j = right;
-    
+
     while (i <= j) {
-      while (a[i] < pivot) ++i;
-      while (a[j] > pivot) --j;
+      while (a[i] < pivot) {
+        ++i;
+      }
+      while (a[j] > pivot) {
+        --j;
+      }
       if (i <= j) {
         std::swap(a[i], a[j]);
         ++i;
         --j;
       }
     }
-    
+
     self(self, a, left, j);
     self(self, a, i, right);
   };
-  
+
   quick_sort_recursive(quick_sort_recursive, *vec, 0, static_cast<int>(vec->size()) - 1);
 }
 
@@ -73,9 +81,8 @@ TEST_P(FastSortBatchRunPerfTestProcesses, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
-const auto kAllPerfTasks =
-    ppc::util::MakeAllPerfTasks<InType, TerekhovDFastSortBatchMPI, TerekhovDFastSortBatchSEQ>(
-        PPC_SETTINGS_terekhov_d_fast_sort_batch);
+const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, TerekhovDFastSortBatchMPI, TerekhovDFastSortBatchSEQ>(
+    PPC_SETTINGS_terekhov_d_fast_sort_batch);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 const auto kPerfTestName = FastSortBatchRunPerfTestProcesses::CustomPerfTestName;

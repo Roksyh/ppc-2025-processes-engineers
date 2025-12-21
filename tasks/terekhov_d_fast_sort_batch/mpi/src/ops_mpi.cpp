@@ -12,28 +12,36 @@ namespace terekhov_d_fast_sort_batch {
 namespace {
 
 void QuickSort(std::vector<int> *vec, int left, int right) {
-  if (left >= right) return;
-  
+  if (left >= right) {
+    return;
+  }
+
   auto &a = *vec;
   int pivot = a[(left + right) / 2];
   int i = left, j = right;
-  
+
   while (i <= j) {
-    while (a[i] < pivot) ++i;
-    while (a[j] > pivot) --j;
+    while (a[i] < pivot) {
+      ++i;
+    }
+    while (a[j] > pivot) {
+      --j;
+    }
     if (i <= j) {
       std::swap(a[i], a[j]);
       ++i;
       --j;
     }
   }
-  
+
   QuickSort(vec, left, j);
   QuickSort(vec, i, right);
 }
 
 void QuickSort(std::vector<int> *vec) {
-  if (vec->empty()) return;
+  if (vec->empty()) {
+    return;
+  }
   QuickSort(vec, 0, static_cast<int>(vec->size()) - 1);
 }
 
@@ -193,8 +201,8 @@ bool TerekhovDFastSortBatchMPI::PreProcessingImpl() {
     send_buf = GetInput().data();
   }
 
-  MPI_Scatterv(send_buf, counts_.data(), displs_.data(), MPI_INT, local_.data(), 
-               counts_[world_rank_], MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Scatterv(send_buf, counts_.data(), displs_.data(), MPI_INT, local_.data(), counts_[world_rank_], MPI_INT, 0,
+               MPI_COMM_WORLD);
 
   GetOutput().clear();
   return true;
