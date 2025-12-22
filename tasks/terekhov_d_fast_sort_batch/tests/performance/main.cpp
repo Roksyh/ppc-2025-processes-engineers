@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <cstddef>
-#include <random>
+#include <algorithm>
+#include <vector>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
 #include "terekhov_d_fast_sort_batch/mpi/include/ops_mpi.hpp"
@@ -11,45 +11,22 @@
 namespace terekhov_d_fast_sort_batch {
 
 class TerekhovDFastSortBatchPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
+  const int kElementCount = 75000000;
   InType input_data_;
+  OutType res_;
 
   void SetUp() override {
-    int size = 150000;
-    input_data_.resize(size);
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dist(1, 2000000);
-
-    for (int i = 0; i < size; i++) {
-      input_data_[i] = dist(gen);
+    std::vector<int> data_vec(kElementCount);
+    for (int i = 0; i < kElementCount; i++) {
+      data_vec[i] = kElementCount - i - 1;
     }
-
-    input_data_[0] = -750000;
-    input_data_[size - 1] = 2500000;
-    input_data_[size / 2] = 777;
-
-    for (int i = 1; i <= 150; i++) {
-      input_data_[(size / 3) + i] = 888888;
-    }
-
-    for (int i = 1; i <= 100; i++) {
-      input_data_[(2 * size / 3) + i] = 333333;
-    }
+    input_data_ = data_vec;
+    std::sort(data_vec.begin(), data_vec.end());
+    res_ = data_vec;
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    if (output_data.size() != input_data_.size()) {
-      return false;
-    }
-
-    for (size_t i = 1; i < output_data.size(); i++) {
-      if (output_data[i] < output_data[i - 1]) {
-        return false;
-      }
-    }
-
-    return true;
+    return res_ == output_data;
   }
 
   InType GetTestInputData() final {
@@ -57,7 +34,7 @@ class TerekhovDFastSortBatchPerfTests : public ppc::util::BaseRunPerfTests<InTyp
   }
 };
 
-TEST_P(TerekhovDFastSortBatchPerfTests, RunPerfModes) {
+TEST_P(TerekhovDFastSortBatchPerfTests, BatcherSortPerformance) {
   ExecuteTest(GetParam());
 }
 
@@ -68,6 +45,6 @@ const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
 
 const auto kPerfTestName = TerekhovDFastSortBatchPerfTests::CustomPerfTestName;
 
-INSTANTIATE_TEST_SUITE_P(RunModeTests, TerekhovDFastSortBatchPerfTests, kGtestValues, kPerfTestName);
+INSTANTIATE_TEST_SUITE_P(BatcherSortPerf, TerekhovDFastSortBatchPerfTests, kGtestValues, kPerfTestName);
 
 }  // namespace terekhov_d_fast_sort_batch

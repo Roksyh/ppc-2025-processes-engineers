@@ -1,7 +1,6 @@
 #include "terekhov_d_fast_sort_batch/seq/include/ops_seq.hpp"
 
-#include <algorithm>
-#include <stack>
+#include <utility>
 #include <vector>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
@@ -11,110 +10,70 @@ namespace terekhov_d_fast_sort_batch {
 TerekhovDFastSortBatchSEQ::TerekhovDFastSortBatchSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput().resize(in.size());
 }
 
 bool TerekhovDFastSortBatchSEQ::ValidationImpl() {
-  return !GetInput().empty();
+  return GetOutput().empty();
 }
 
 bool TerekhovDFastSortBatchSEQ::PreProcessingImpl() {
-  GetOutput() = GetInput();
+  GetOutput().clear();
   return true;
 }
 
-int TerekhovDFastSortBatchSEQ::Partition(std::vector<int> &arr, int left, int right) {
-  int pivot_index = left + ((right - left) / 2);
-  int pivot_value = arr[pivot_index];
+std::pair<int, int> TerekhovDFastSortBatchSEQ::PartitionSegment(std::vector<int> &arr, int start_idx, int end_idx) {
+  int left = start_idx;
+  int right = end_idx;
 
-  std::swap(arr[pivot_index], arr[left]);
+  // Улучшенный выбор опорного элемента
+  int a = arr[left];
+  int b = arr[right];
+  int c = arr[left + (right - left) / 2];
 
-  int i = left + 1;
-  int j = right;
-
-  while (i <= j) {
-    while (i <= j && arr[i] <= pivot_value) {
-      i++;
-    }
-
-    while (i <= j && arr[j] > pivot_value) {
-      j--;
-    }
-
-    if (i < j) {
-      std::swap(arr[i], arr[j]);
-      i++;
-      j--;
-    } else {
-      break;
-    }
+  // Медиана трех
+  int pivot_value;
+  if ((a > b) != (a > c)) {
+    pivot_value = a;
+  } else if ((b > a) != (b > c)) {
+    pivot_value = b;
+  } else {
+    pivot_value = c;
   }
 
-  std::swap(arr[left], arr[j]);
-
-  return j;
-}
-
-void TerekhovDFastSortBatchSEQ::BatcherOddEvenMerge(std::vector<int> &arr, int left, int mid, int right) {
-  int n = right - left + 1;
-
-  if (n <= 1) {
-    return;
-  }
-
-  if (n == 2) {
-    if (arr[left] > arr[right]) {
+  while (left <= right) {
+    while (arr[left] < pivot_value) {
+      left++;
+    }
+    while (arr[right] > pivot_value) {
+      right--;
+    }
+    if (left <= right) {
       std::swap(arr[left], arr[right]);
+      left++;
+      right--;
     }
-    return;
   }
 
-  std::vector<int> temp(n);
-
-  int i = left;
-  int j = mid + 1;
-  int k = 0;
-
-  while (i <= mid && j <= right) {
-    if (arr[i] <= arr[j]) {
-      temp[k] = arr[i];
-      i++;
-    } else {
-      temp[k] = arr[j];
-      j++;
-    }
-    k++;
-  }
-
-  while (i <= mid) {
-    temp[k] = arr[i];
-    i++;
-    k++;
-  }
-
-  while (j <= right) {
-    temp[k] = arr[j];
-    j++;
-    k++;
-  }
-
-  for (int idx = 0; idx < k; idx++) {
-    arr[left + idx] = temp[idx];
-  }
+  return {left, right};
 }
 
-void TerekhovDFastSortBatchSEQ::QuickSortWithBatcherMerge(std::vector<int> &arr, int left, int right) {
-  struct Range {
+bool TerekhovDFastSortBatchSEQ::RunImpl() {
+  std::vector<int> data_array = GetInput();
+  if (data_array.empty()) {
+    return true;
+  }
+
+  struct StackElement {
     int left;
     int right;
   };
 
-  std::stack<Range> stack;
-  stack.push({left, right});
+  std::vector<StackElement> call_stack;
+  call_stack.push_back({0, static_cast<int>(data_array.size()) - 1});
 
-  while (!stack.empty()) {
-    Range current = stack.top();
-    stack.pop();
+  while (!call_stack.empty()) {
+    StackElement current = call_stack.back();
+    call_stack.pop_back();
 
     int l = current.left;
     int r = current.right;
@@ -123,32 +82,17 @@ void TerekhovDFastSortBatchSEQ::QuickSortWithBatcherMerge(std::vector<int> &arr,
       continue;
     }
 
-    int pivot_index = Partition(arr, l, r);
+    auto [new_left, new_right] = PartitionSegment(data_array, l, r);
 
-    int left_size = pivot_index - l;
-    int right_size = r - pivot_index;
-
-    if (left_size > 1 && right_size > 1) {
-      if (left_size > right_size) {
-        stack.push({pivot_index + 1, r});
-        stack.push({l, pivot_index - 1});
-      } else {
-        stack.push({l, pivot_index - 1});
-        stack.push({pivot_index + 1, r});
-      }
-    } else if (left_size > 1) {
-      stack.push({l, pivot_index - 1});
-    } else if (right_size > 1) {
-      stack.push({pivot_index + 1, r});
+    if (l < new_right) {
+      call_stack.push_back({l, new_right});
     }
-
-    BatcherOddEvenMerge(arr, l, pivot_index, r);
+    if (new_left < r) {
+      call_stack.push_back({new_left, r});
+    }
   }
-}
 
-bool TerekhovDFastSortBatchSEQ::RunImpl() {
-  QuickSortWithBatcherMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
-
+  GetOutput().swap(data_array);
   return true;
 }
 

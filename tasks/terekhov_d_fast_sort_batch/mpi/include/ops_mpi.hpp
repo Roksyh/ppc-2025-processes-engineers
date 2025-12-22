@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -20,20 +21,20 @@ class TerekhovDFastSortBatchMPI : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  static int Partition(std::vector<int> &arr, int left, int right);
-  static void BatcherOddEvenMerge(std::vector<int> &arr, int left, int mid, int right);
-  static void QuickSortWithBatcherMerge(std::vector<int> &arr, int left, int right);
-
-  void ParallelQuickSort();
-  std::vector<int> DistributeData(int world_size, int world_rank);
-
-  struct DistributionInfo {
-    std::vector<int> send_counts;
-    std::vector<int> displacements;
-    int local_size = 0;
-  };
-
-  static DistributionInfo PrepareDistributionInfo(int total_size, int world_size, int world_rank);
+  static std::vector<int> GetProcessSegment(int proc_count, int rank, int arr_size);
+  void BroadcastInputData(int rank);
+  static void CombineAndSelect(std::vector<int> &local_vec, std::vector<int> &partner_vec, bool take_smaller);
+  static void ProcessExchange(std::vector<int> &local_vec, int arr_size, int rank, int proc_count, int partner_offset);
+  static void BatcherMergeProcedure(std::vector<int> &local_vec, std::vector<int> &segment, int arr_size, int rank,
+                                    int proc_count);
+  static void BatcherEvenStep(std::vector<int> &local_vec, std::vector<int> &segment, int arr_size, int rank,
+                              int proc_count);
+  static void BatcherOddStep(std::vector<int> &local_vec, std::vector<int> &segment, int arr_size, int rank,
+                             int proc_count);
+  static int GetLocalSize(int arr_size, int rank, int proc_count);
+  static void SortLocalData(std::vector<int> &data);
+  static std::pair<int, int> PartitionArray(std::vector<int> &arr, int start_idx, int end_idx);
+  void DistributeFinalResult(int rank);
 };
 
 }  // namespace terekhov_d_fast_sort_batch

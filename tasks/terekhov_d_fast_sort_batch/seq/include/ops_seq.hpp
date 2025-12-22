@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 
 #include "task/include/task.hpp"
@@ -19,10 +20,7 @@ class TerekhovDFastSortBatchSEQ : public BaseTask {
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
-
-  static void QuickSortWithBatcherMerge(std::vector<int> &arr, int left, int right);
-  static int Partition(std::vector<int> &arr, int left, int right);
-  static void BatcherOddEvenMerge(std::vector<int> &arr, int left, int mid, int right);
+  static std::pair<int, int> PartitionSegment(std::vector<int> &arr, int start_idx, int end_idx);
 };
 
 }  // namespace terekhov_d_fast_sort_batch
