@@ -3,246 +3,285 @@
 #include <mpi.h>
 
 #include <algorithm>
-#include <cstddef>
-#include <utility>
+#include <stack>
 #include <vector>
 
+#include "terekhov_d_fast_sort_batch/common/include/common.hpp"
+
 namespace terekhov_d_fast_sort_batch {
-
-namespace {
-
-void QuickSort(std::vector<int> *vec, int left, int right) {
-  if (left >= right) {
-    return;
-  }
-
-  auto &a = *vec;
-  int pivot = a[(left + right) / 2];
-  int i = left, j = right;
-
-  while (i <= j) {
-    while (a[i] < pivot) {
-      ++i;
-    }
-    while (a[j] > pivot) {
-      --j;
-    }
-    if (i <= j) {
-      std::swap(a[i], a[j]);
-      ++i;
-      --j;
-    }
-  }
-
-  QuickSort(vec, left, j);
-  QuickSort(vec, i, right);
-}
-
-void QuickSort(std::vector<int> *vec) {
-  if (vec->empty()) {
-    return;
-  }
-  QuickSort(vec, 0, static_cast<int>(vec->size()) - 1);
-}
-
-struct Elem {
-  int val{};
-  bool pad{false};
-
-  Elem(int value, bool padding) : val(value), pad(padding) {}
-};
-
-inline bool Greater(const Elem &lhs, const Elem &rhs) {
-  if (lhs.pad != rhs.pad) {
-    return lhs.pad && !rhs.pad;
-  }
-  return lhs.val > rhs.val;
-}
-
-inline void CompareExchange(std::vector<Elem> *arr, std::size_t i, std::size_t j) {
-  if (Greater((*arr)[i], (*arr)[j])) {
-    std::swap((*arr)[i], (*arr)[j]);
-  }
-}
-
-std::size_t NextPow2(std::size_t x) {
-  std::size_t p = 1;
-  while (p < x) {
-    p <<= 1U;
-  }
-  return p;
-}
-
-void OddEvenMergeStep(std::vector<Elem> *arr, std::size_t k, std::size_t j) {
-  const std::size_t n = arr->size();
-  for (std::size_t i = 0; i < n; ++i) {
-    const std::size_t ixj = i ^ j;
-    if (ixj > i) {
-      if ((i & k) == 0) {
-        CompareExchange(arr, i, ixj);
-      } else {
-        CompareExchange(arr, ixj, i);
-      }
-    }
-  }
-}
-
-void OddEvenMergeNetwork(std::vector<Elem> *arr) {
-  const std::size_t n = arr->size();
-  if (n <= 1) {
-    return;
-  }
-
-  for (std::size_t k = 2; k <= n; k <<= 1U) {
-    for (std::size_t j = (k >> 1U); j > 0; j >>= 1U) {
-      OddEvenMergeStep(arr, k, j);
-    }
-  }
-}
-
-std::vector<int> BatcherOddEvenMerge(const std::vector<int> &a, const std::vector<int> &b) {
-  const std::size_t need = a.size() + b.size();
-  const std::size_t half = NextPow2((a.size() > b.size()) ? a.size() : b.size());
-
-  std::vector<Elem> buffer;
-  buffer.reserve(2 * half);
-
-  for (std::size_t i = 0; i < half; ++i) {
-    if (i < a.size()) {
-      buffer.emplace_back(a[i], false);
-    } else {
-      buffer.emplace_back(0, true);
-    }
-  }
-  for (std::size_t i = 0; i < half; ++i) {
-    if (i < b.size()) {
-      buffer.emplace_back(b[i], false);
-    } else {
-      buffer.emplace_back(0, true);
-    }
-  }
-
-  OddEvenMergeNetwork(&buffer);
-
-  std::vector<int> out;
-  out.reserve(need);
-  for (const auto &elem : buffer) {
-    if (!elem.pad) {
-      out.push_back(elem.val);
-    }
-    if (out.size() == need) {
-      break;
-    }
-  }
-  return out;
-}
-
-std::vector<int> RecvVector(int src, int tag_base, MPI_Comm comm) {
-  int sz = 0;
-  MPI_Status status{};
-  MPI_Recv(&sz, 1, MPI_INT, src, tag_base, comm, &status);
-
-  std::vector<int> v(static_cast<std::size_t>(sz));
-  if (sz > 0) {
-    MPI_Recv(v.data(), sz, MPI_INT, src, tag_base + 1, comm, &status);
-  }
-  return v;
-}
-
-void SendVector(int dst, int tag_base, const std::vector<int> &v, MPI_Comm comm) {
-  const int sz = static_cast<int>(v.size());
-  MPI_Send(&sz, 1, MPI_INT, dst, tag_base, comm);
-  if (sz > 0) {
-    MPI_Send(v.data(), sz, MPI_INT, dst, tag_base + 1, comm);
-  }
-}
-
-}  // namespace
 
 TerekhovDFastSortBatchMPI::TerekhovDFastSortBatchMPI(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = {};
+  GetOutput().resize(in.size());
 }
 
 bool TerekhovDFastSortBatchMPI::ValidationImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    if (GetInput().empty()) {
+      return false;
+    }
+  }
+
   return true;
 }
 
 bool TerekhovDFastSortBatchMPI::PreProcessingImpl() {
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank_);
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size_);
+  int rank = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  int global_size = 0;
-  if (world_rank_ == 0) {
-    global_size = static_cast<int>(GetInput().size());
+  if (rank == 0) {
+    GetOutput() = GetInput();
   }
-  MPI_Bcast(&global_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  counts_.assign(world_size_, 0);
-  displs_.assign(world_size_, 0);
-
-  const int base = (world_size_ > 0) ? (global_size / world_size_) : 0;
-  const int rem = (world_size_ > 0) ? (global_size % world_size_) : 0;
-
-  for (int rank_index = 0; rank_index < world_size_; ++rank_index) {
-    counts_[rank_index] = base + ((rank_index < rem) ? 1 : 0);
-  }
-  for (int rank_index = 1; rank_index < world_size_; ++rank_index) {
-    displs_[rank_index] = displs_[rank_index - 1] + counts_[rank_index - 1];
-  }
-
-  local_.assign(static_cast<std::size_t>(counts_[world_rank_]), 0);
-
-  int *send_buf = nullptr;
-  if (world_rank_ == 0 && global_size > 0) {
-    send_buf = GetInput().data();
-  }
-
-  MPI_Scatterv(send_buf, counts_.data(), displs_.data(), MPI_INT, local_.data(), counts_[world_rank_], MPI_INT, 0,
-               MPI_COMM_WORLD);
-
-  GetOutput().clear();
   return true;
 }
 
-bool TerekhovDFastSortBatchMPI::RunImpl() {
-  QuickSort(&local_);
+int TerekhovDFastSortBatchMPI::Partition(std::vector<int> &arr, int left, int right) {
+  int pivot_index = left + ((right - left) / 2);
+  int pivot_value = arr[pivot_index];
 
-  for (int step = 1; step < world_size_; step <<= 1) {
-    if ((world_rank_ % (2 * step)) == 0) {
-      const int partner = world_rank_ + step;
-      if (partner < world_size_) {
-        std::vector<int> other = RecvVector(partner, 1000 + step, MPI_COMM_WORLD);
-        local_ = BatcherOddEvenMerge(local_, other);
-      }
+  std::swap(arr[pivot_index], arr[left]);
+
+  int i = left + 1;
+  int j = right;
+
+  while (i <= j) {
+    while (i <= j && arr[i] <= pivot_value) {
+      i++;
+    }
+
+    while (i <= j && arr[j] > pivot_value) {
+      j--;
+    }
+
+    if (i < j) {
+      std::swap(arr[i], arr[j]);
+      i++;
+      j--;
     } else {
-      const int partner = world_rank_ - step;
-      SendVector(partner, 1000 + step, local_, MPI_COMM_WORLD);
       break;
     }
   }
+
+  std::swap(arr[left], arr[j]);
+  return j;
+}
+
+void TerekhovDFastSortBatchMPI::BatcherOddEvenMerge(std::vector<int> &arr, int left, int mid, int right) {
+  int n = right - left + 1;
+
+  if (n <= 1) {
+    return;
+  }
+
+  if (n == 2) {
+    if (arr[left] > arr[right]) {
+      std::swap(arr[left], arr[right]);
+    }
+    return;
+  }
+
+  std::vector<int> temp(n);
+
+  int i = left;
+  int j = mid + 1;
+  int k = 0;
+
+  while (i <= mid && j <= right) {
+    if (arr[i] <= arr[j]) {
+      temp[k++] = arr[i++];
+    } else {
+      temp[k++] = arr[j++];
+    }
+  }
+
+  while (i <= mid) {
+    temp[k++] = arr[i++];
+  }
+
+  while (j <= right) {
+    temp[k++] = arr[j++];
+  }
+
+  for (int step = 1; step < n; step *= 2) {
+    for (int start = 0; start + step < n; start += 2 * step) {
+      int end = std::min(start + 2 * step - 1, n - 1);
+      int middle = start + step - 1;
+
+      int idx1 = start;
+      int idx2 = middle + 1;
+
+      while (idx1 <= middle && idx2 <= end) {
+        if (temp[idx1] > temp[idx2]) {
+          std::swap(temp[idx1], temp[idx2]);
+        }
+        idx1++;
+        idx2++;
+      }
+    }
+  }
+
+  for (int idx = 0; idx < n; idx++) {
+    arr[left + idx] = temp[idx];
+  }
+}
+
+void TerekhovDFastSortBatchMPI::QuickSortWithBatcherMerge(std::vector<int> &arr, int left, int right) {
+  struct Range {
+    int left;
+    int right;
+  };
+
+  std::stack<Range> stack;
+  stack.push({left, right});
+
+  while (!stack.empty()) {
+    Range current = stack.top();
+    stack.pop();
+
+    int l = current.left;
+    int r = current.right;
+
+    if (l >= r) {
+      continue;
+    }
+
+    int pivot_index = Partition(arr, l, r);
+
+    int left_size = pivot_index - l;
+    int right_size = r - pivot_index;
+
+    if (left_size > 1 && right_size > 1) {
+      if (left_size > right_size) {
+        stack.push({pivot_index + 1, r});
+        stack.push({l, pivot_index - 1});
+      } else {
+        stack.push({l, pivot_index - 1});
+        stack.push({pivot_index + 1, r});
+      }
+    } else if (left_size > 1) {
+      stack.push({l, pivot_index - 1});
+    } else if (right_size > 1) {
+      stack.push({pivot_index + 1, r});
+    }
+
+    BatcherOddEvenMerge(arr, l, pivot_index, r);
+  }
+}
+
+TerekhovDFastSortBatchMPI::DistributionInfo TerekhovDFastSortBatchMPI::PrepareDistributionInfo(int total_size,
+                                                                                               int world_size,
+                                                                                               int world_rank) {
+  DistributionInfo info;
+
+  int base_size = total_size / world_size;
+  int remainder = total_size % world_size;
+
+  info.local_size = base_size + (world_rank < remainder ? 1 : 0);
+
+  info.send_counts.assign(world_size, 0);
+  info.displacements.assign(world_size, 0);
+
+  if (world_rank == 0) {
+    int displacement = 0;
+    for (int i = 0; i < world_size; ++i) {
+      info.send_counts[i] = base_size + (i < remainder ? 1 : 0);
+      info.displacements[i] = displacement;
+      displacement += info.send_counts[i];
+    }
+  }
+
+  return info;
+}
+
+std::vector<int> TerekhovDFastSortBatchMPI::DistributeData(int world_size, int world_rank) {
+  int total_size = 0;
+
+  if (world_rank == 0) {
+    total_size = static_cast<int>(GetOutput().size());
+  }
+
+  MPI_Bcast(&total_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  DistributionInfo info = PrepareDistributionInfo(total_size, world_size, world_rank);
+
+  std::vector<int> local_buffer(info.local_size);
+
+  MPI_Scatterv(GetOutput().data(), info.send_counts.data(), info.displacements.data(), MPI_INT, local_buffer.data(),
+               info.local_size, MPI_INT, 0, MPI_COMM_WORLD);
+
+  return local_buffer;
+}
+
+void TerekhovDFastSortBatchMPI::ParallelQuickSort() {
+  int world_size = 0;
+  int world_rank = 0;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+  if (world_size == 1) {
+    if (!GetOutput().empty()) {
+      QuickSortWithBatcherMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
+    }
+    return;
+  }
+
+  std::vector<int> local_buffer = DistributeData(world_size, world_rank);
+
+  if (!local_buffer.empty()) {
+    QuickSortWithBatcherMerge(local_buffer, 0, static_cast<int>(local_buffer.size()) - 1);
+  }
+
+  std::vector<int> all_sizes(world_size);
+  int local_size = static_cast<int>(local_buffer.size());
+
+  MPI_Gather(&local_size, 1, MPI_INT, all_sizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  std::vector<int> displacements(world_size, 0);
+  int total_size = 0;
+
+  if (world_rank == 0) {
+    for (int i = 0; i < world_size; ++i) {
+      displacements[i] = total_size;
+      total_size += all_sizes[i];
+    }
+    GetOutput().resize(total_size);
+  }
+
+  int *recv_data = (world_rank == 0) ? GetOutput().data() : nullptr;
+  int *recv_counts = (world_rank == 0) ? all_sizes.data() : nullptr;
+  int *recv_displs = (world_rank == 0) ? displacements.data() : nullptr;
+
+  MPI_Gatherv(local_buffer.data(), local_size, MPI_INT, recv_data, recv_counts, recv_displs, MPI_INT, 0,
+              MPI_COMM_WORLD);
+
+  if (world_rank == 0 && !GetOutput().empty()) {
+    QuickSortWithBatcherMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
+  }
+
+  int final_size = 0;
+  if (world_rank == 0) {
+    final_size = static_cast<int>(GetOutput().size());
+  }
+
+  MPI_Bcast(&final_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (world_rank != 0) {
+    GetOutput().resize(final_size);
+  }
+
+  MPI_Bcast(GetOutput().data(), final_size, MPI_INT, 0, MPI_COMM_WORLD);
+}
+
+bool TerekhovDFastSortBatchMPI::RunImpl() {
+  ParallelQuickSort();
   return true;
 }
 
 bool TerekhovDFastSortBatchMPI::PostProcessingImpl() {
-  int out_size = 0;
-  if (world_rank_ == 0) {
-    GetOutput() = local_;
-    out_size = static_cast<int>(GetOutput().size());
-  }
-
-  MPI_Bcast(&out_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  if (world_rank_ != 0) {
-    GetOutput().assign(static_cast<std::size_t>(out_size), 0);
-  }
-
-  if (out_size > 0) {
-    MPI_Bcast(GetOutput().data(), out_size, MPI_INT, 0, MPI_COMM_WORLD);
-  }
   return true;
 }
 

@@ -1,204 +1,176 @@
 #include "terekhov_d_fast_sort_batch/seq/include/ops_seq.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <utility>
+#include <stack>
 #include <vector>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
 
 namespace terekhov_d_fast_sort_batch {
 
-namespace {
-
-void QuickSort(std::vector<int> *vec, int left, int right) {
-  if (left >= right) {
-    return;
-  }
-
-  auto &a = *vec;
-  int pivot = a[(left + right) / 2];
-  int i = left, j = right;
-
-  while (i <= j) {
-    while (a[i] < pivot) {
-      ++i;
-    }
-    while (a[j] > pivot) {
-      --j;
-    }
-    if (i <= j) {
-      std::swap(a[i], a[j]);
-      ++i;
-      --j;
-    }
-  }
-
-  QuickSort(vec, left, j);
-  QuickSort(vec, i, right);
-}
-
-void QuickSort(std::vector<int> *vec) {
-  if (vec->empty()) {
-    return;
-  }
-  QuickSort(vec, 0, static_cast<int>(vec->size()) - 1);
-}
-
-struct Elem {
-  int val{};
-  bool pad{false};
-
-  Elem(int value, bool padding) : val(value), pad(padding) {}
-};
-
-inline bool Greater(const Elem &lhs, const Elem &rhs) {
-  if (lhs.pad != rhs.pad) {
-    return lhs.pad && !rhs.pad;
-  }
-  return lhs.val > rhs.val;
-}
-
-inline void CompareExchange(std::vector<Elem> *arr, std::size_t i, std::size_t j) {
-  if (Greater((*arr)[i], (*arr)[j])) {
-    std::swap((*arr)[i], (*arr)[j]);
-  }
-}
-
-std::size_t NextPow2(std::size_t x) {
-  std::size_t p = 1;
-  while (p < x) {
-    p <<= 1U;
-  }
-  return p;
-}
-
-void OddEvenMergeStep(std::vector<Elem> *arr, std::size_t k, std::size_t j) {
-  const std::size_t n = arr->size();
-  for (std::size_t i = 0; i < n; ++i) {
-    const std::size_t ixj = i ^ j;
-    if (ixj > i) {
-      if ((i & k) == 0) {
-        CompareExchange(arr, i, ixj);
-      } else {
-        CompareExchange(arr, ixj, i);
-      }
-    }
-  }
-}
-
-void OddEvenMergeNetwork(std::vector<Elem> *arr) {
-  const std::size_t n = arr->size();
-  if (n <= 1) {
-    return;
-  }
-
-  for (std::size_t k = 2; k <= n; k <<= 1U) {
-    for (std::size_t j = (k >> 1U); j > 0; j >>= 1U) {
-      OddEvenMergeStep(arr, k, j);
-    }
-  }
-}
-
-std::vector<int> BatcherOddEvenMerge(const std::vector<int> &a, const std::vector<int> &b) {
-  const std::size_t need = a.size() + b.size();
-  const std::size_t half = NextPow2((a.size() > b.size()) ? a.size() : b.size());
-
-  std::vector<Elem> buffer;
-  buffer.reserve(2 * half);
-
-  for (std::size_t i = 0; i < half; ++i) {
-    if (i < a.size()) {
-      buffer.emplace_back(a[i], false);
-    } else {
-      buffer.emplace_back(0, true);
-    }
-  }
-  for (std::size_t i = 0; i < half; ++i) {
-    if (i < b.size()) {
-      buffer.emplace_back(b[i], false);
-    } else {
-      buffer.emplace_back(0, true);
-    }
-  }
-
-  OddEvenMergeNetwork(&buffer);
-
-  std::vector<int> out;
-  out.reserve(need);
-  for (const auto &elem : buffer) {
-    if (!elem.pad) {
-      out.push_back(elem.val);
-    }
-    if (out.size() == need) {
-      break;
-    }
-  }
-  return out;
-}
-
-}  // namespace
-
 TerekhovDFastSortBatchSEQ::TerekhovDFastSortBatchSEQ(const InType &in) {
   SetTypeOfTask(GetStaticTypeOfTask());
   GetInput() = in;
-  GetOutput() = {};
+  GetOutput().resize(in.size());
 }
 
 bool TerekhovDFastSortBatchSEQ::ValidationImpl() {
-  return true;
+  return !GetInput().empty();
 }
 
 bool TerekhovDFastSortBatchSEQ::PreProcessingImpl() {
-  data_ = GetInput();
-  GetOutput().clear();
+  GetOutput() = GetInput();
   return true;
 }
 
-bool TerekhovDFastSortBatchSEQ::RunImpl() {
-  const std::size_t n = data_.size();
+int TerekhovDFastSortBatchSEQ::Partition(std::vector<int> &arr, int left, int right) {
+  int pivot_index = left + ((right - left) / 2);
+  int pivot_value = arr[pivot_index];
+
+  std::swap(arr[pivot_index], arr[left]);
+
+  int i = left + 1;
+  int j = right;
+
+  while (i <= j) {
+    while (i <= j && arr[i] <= pivot_value) {
+      i++;
+    }
+
+    while (i <= j && arr[j] > pivot_value) {
+      j--;
+    }
+
+    if (i < j) {
+      std::swap(arr[i], arr[j]);
+      i++;
+      j--;
+    } else {
+      break;
+    }
+  }
+
+  std::swap(arr[left], arr[j]);
+
+  return j;
+}
+
+void TerekhovDFastSortBatchSEQ::BatcherOddEvenMerge(std::vector<int> &arr, int left, int mid, int right) {
+  int n = right - left + 1;
+
   if (n <= 1) {
-    return true;
+    return;
   }
 
-  std::size_t blocks = 1;
-  while ((blocks << 1U) <= n && (blocks << 1U) <= 32) {
-    blocks <<= 1U;
-  }
-
-  std::vector<std::vector<int>> parts;
-  parts.reserve(blocks);
-
-  const std::size_t base = n / blocks;
-  const std::size_t rem = n % blocks;
-
-  std::size_t pos = 0;
-  for (std::size_t block_index = 0; block_index < blocks; ++block_index) {
-    const std::size_t sz = base + (block_index < rem ? 1 : 0);
-    std::vector<int> chunk;
-    chunk.reserve(sz);
-    for (std::size_t i = 0; i < sz; ++i) {
-      chunk.push_back(data_[pos++]);
+  if (n == 2) {
+    if (arr[left] > arr[right]) {
+      std::swap(arr[left], arr[right]);
     }
-    QuickSort(&chunk);
-    parts.push_back(std::move(chunk));
+    return;
   }
 
-  while (parts.size() > 1) {
-    std::vector<std::vector<int>> next;
-    next.reserve(parts.size() / 2);
-    for (std::size_t i = 0; i < parts.size(); i += 2) {
-      next.push_back(BatcherOddEvenMerge(parts[i], parts[i + 1]));
+  std::vector<int> temp(n);
+
+  int i = left;
+  int j = mid + 1;
+  int k = 0;
+
+  while (i <= mid && j <= right) {
+    if (arr[i] <= arr[j]) {
+      temp[k] = arr[i];
+      i++;
+    } else {
+      temp[k] = arr[j];
+      j++;
     }
-    parts = std::move(next);
+    k++;
   }
 
-  data_ = std::move(parts[0]);
+  while (i <= mid) {
+    temp[k] = arr[i];
+    i++;
+    k++;
+  }
+
+  while (j <= right) {
+    temp[k] = arr[j];
+    j++;
+    k++;
+  }
+
+  for (int step = 1; step < n; step *= 2) {
+    for (int start = 0; start + step < n; start += 2 * step) {
+      int end = std::min(start + 2 * step - 1, n - 1);
+      int middle = start + step - 1;
+
+      int idx1 = start;
+      int idx2 = middle + 1;
+
+      while (idx1 <= middle && idx2 <= end) {
+        if (temp[idx1] > temp[idx2]) {
+          std::swap(temp[idx1], temp[idx2]);
+        }
+        idx1++;
+        idx2++;
+      }
+    }
+  }
+
+  for (int idx = 0; idx < k; idx++) {
+    arr[left + idx] = temp[idx];
+  }
+}
+
+void TerekhovDFastSortBatchSEQ::QuickSortWithBatcherMerge(std::vector<int> &arr, int left, int right) {
+  struct Range {
+    int left;
+    int right;
+  };
+
+  std::stack<Range> stack;
+  stack.push({left, right});
+
+  while (!stack.empty()) {
+    Range current = stack.top();
+    stack.pop();
+
+    int l = current.left;
+    int r = current.right;
+
+    if (l >= r) {
+      continue;
+    }
+
+    int pivot_index = Partition(arr, l, r);
+
+    int left_size = pivot_index - l;
+    int right_size = r - pivot_index;
+
+    if (left_size > 1 && right_size > 1) {
+      if (left_size > right_size) {
+        stack.push({pivot_index + 1, r});
+        stack.push({l, pivot_index - 1});
+      } else {
+        stack.push({l, pivot_index - 1});
+        stack.push({pivot_index + 1, r});
+      }
+    } else if (left_size > 1) {
+      stack.push({l, pivot_index - 1});
+    } else if (right_size > 1) {
+      stack.push({pivot_index + 1, r});
+    }
+
+    BatcherOddEvenMerge(arr, l, pivot_index, r);
+  }
+}
+
+bool TerekhovDFastSortBatchSEQ::RunImpl() {
+  QuickSortWithBatcherMerge(GetOutput(), 0, static_cast<int>(GetOutput().size()) - 1);
+
   return true;
 }
 
 bool TerekhovDFastSortBatchSEQ::PostProcessingImpl() {
-  GetOutput() = data_;
   return true;
 }
 

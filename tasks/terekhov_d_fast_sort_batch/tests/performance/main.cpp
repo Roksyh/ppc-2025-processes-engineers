@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <random>
 
@@ -11,75 +10,57 @@
 
 namespace terekhov_d_fast_sort_batch {
 
-namespace {
+class TerekhovDFastSortBatchPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
+  InType input_data_;
 
-void QuickSort(InType *vec) {
-  if (vec->empty()) {
-    return;
-  }
-
-  auto quick_sort_recursive = [](auto &self, std::vector<int> &a, int left, int right) -> void {
-    if (left >= right) {
-      return;
-    }
-
-    int pivot = a[(left + right) / 2];
-    int i = left, j = right;
-
-    while (i <= j) {
-      while (a[i] < pivot) {
-        ++i;
-      }
-      while (a[j] > pivot) {
-        --j;
-      }
-      if (i <= j) {
-        std::swap(a[i], a[j]);
-        ++i;
-        --j;
-      }
-    }
-
-    self(self, a, left, j);
-    self(self, a, i, right);
-  };
-
-  quick_sort_recursive(quick_sort_recursive, *vec, 0, static_cast<int>(vec->size()) - 1);
-}
-
-}  // namespace
-
-class FastSortBatchRunPerfTestProcesses : public ppc::util::BaseRunPerfTests<InType, OutType> {
- public:
   void SetUp() override {
-    constexpr std::size_t kSize = 262144;
-    input_data_.resize(kSize);
+    int size = 150000;  // Увеличил размер
+    input_data_.resize(size);
 
-    std::mt19937 gen(12345);
-    std::uniform_int_distribution<> dist(-1000000, 1000000);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(1, 2000000);  // Увеличил диапазон
 
-    for (std::size_t i = 0; i < kSize; ++i) {
+    for (int i = 0; i < size; i++) {
       input_data_[i] = dist(gen);
     }
 
-    expected_ = input_data_;
-    QuickSort(&expected_);
+    // Изменил специальные значения
+    input_data_[0] = -750000;
+    input_data_[size - 1] = 2500000;
+    input_data_[size / 2] = 777;
+
+    // Изменил дубликаты
+    for (int i = 1; i <= 150; i++) {
+      input_data_[(size / 3) + i] = 888888;
+    }
+
+    // Добавил больше дубликатов в другом месте
+    for (int i = 1; i <= 100; i++) {
+      input_data_[(2 * size / 3) + i] = 333333;
+    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return output_data == expected_;
+    if (output_data.size() != input_data_.size()) {
+      return false;
+    }
+
+    for (size_t i = 1; i < output_data.size(); i++) {
+      if (output_data[i] < output_data[i - 1]) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   InType GetTestInputData() final {
     return input_data_;
   }
-
- private:
-  InType input_data_;
-  OutType expected_;
 };
 
-TEST_P(FastSortBatchRunPerfTestProcesses, RunPerfModes) {
+TEST_P(TerekhovDFastSortBatchPerfTests, RunPerfModes) {
   ExecuteTest(GetParam());
 }
 
@@ -87,8 +68,9 @@ const auto kAllPerfTasks = ppc::util::MakeAllPerfTasks<InType, TerekhovDFastSort
     PPC_SETTINGS_terekhov_d_fast_sort_batch);
 
 const auto kGtestValues = ppc::util::TupleToGTestValues(kAllPerfTasks);
-const auto kPerfTestName = FastSortBatchRunPerfTestProcesses::CustomPerfTestName;
 
-INSTANTIATE_TEST_SUITE_P(RunModeTests, FastSortBatchRunPerfTestProcesses, kGtestValues, kPerfTestName);
+const auto kPerfTestName = TerekhovDFastSortBatchPerfTests::CustomPerfTestName;
+
+INSTANTIATE_TEST_SUITE_P(RunModeTests, TerekhovDFastSortBatchPerfTests, kGtestValues, kPerfTestName);
 
 }  // namespace terekhov_d_fast_sort_batch

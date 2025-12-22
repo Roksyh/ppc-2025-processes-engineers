@@ -12,7 +12,6 @@ class TerekhovDFastSortBatchMPI : public BaseTask {
   static constexpr ppc::task::TypeOfTask GetStaticTypeOfTask() {
     return ppc::task::TypeOfTask::kMPI;
   }
-
   explicit TerekhovDFastSortBatchMPI(const InType &in);
 
  private:
@@ -21,11 +20,20 @@ class TerekhovDFastSortBatchMPI : public BaseTask {
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  std::vector<int> local_;
-  std::vector<int> counts_;
-  std::vector<int> displs_;
-  int world_rank_{0};
-  int world_size_{1};
+  static int Partition(std::vector<int> &arr, int left, int right);
+  static void BatcherOddEvenMerge(std::vector<int> &arr, int left, int mid, int right);
+  static void QuickSortWithBatcherMerge(std::vector<int> &arr, int left, int right);
+
+  void ParallelQuickSort();
+  std::vector<int> DistributeData(int world_size, int world_rank);
+
+  struct DistributionInfo {
+    std::vector<int> send_counts;
+    std::vector<int> displacements;
+    int local_size = 0;
+  };
+
+  static DistributionInfo PrepareDistributionInfo(int total_size, int world_size, int world_rank);
 };
 
 }  // namespace terekhov_d_fast_sort_batch

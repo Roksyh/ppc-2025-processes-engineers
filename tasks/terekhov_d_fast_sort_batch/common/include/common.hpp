@@ -10,7 +10,7 @@ namespace terekhov_d_fast_sort_batch {
 
 using InType = std::vector<int>;
 using OutType = std::vector<int>;
-using TestType = std::tuple<std::vector<int>, std::string>;
+using TestType = std::tuple<int, std::string>;
 using BaseTask = ppc::task::Task<InType, OutType>;
 
 }  // namespace terekhov_d_fast_sort_batch
