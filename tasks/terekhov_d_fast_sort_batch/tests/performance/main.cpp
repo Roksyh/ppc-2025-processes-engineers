@@ -11,17 +11,17 @@
 namespace terekhov_d_fast_sort_batch {
 
 class TerekhovDFastSortBatchPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kElementCount = 75000000;
+  const int kElementCount_ = 75000000;
   InType input_data_;
   OutType res_;
 
   void SetUp() override {
-    std::vector<int> data_vec(kElementCount);
-    for (int i = 0; i < kElementCount; i++) {
-      data_vec[i] = kElementCount - i - 1;
+    std::vector<int> data_vec(kElementCount_);
+    for (int i = 0; i < kElementCount_; i++) {
+      data_vec[i] = kElementCount_ - i - 1;
     }
     input_data_ = data_vec;
-    std::sort(data_vec.begin(), data_vec.end());
+    std::ranges::sort(data_vec);
     res_ = data_vec;
   }
 

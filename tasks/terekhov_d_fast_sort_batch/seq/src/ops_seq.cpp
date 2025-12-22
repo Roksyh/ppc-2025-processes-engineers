@@ -25,13 +25,11 @@ std::pair<int, int> TerekhovDFastSortBatchSEQ::PartitionSegment(std::vector<int>
   int left = start_idx;
   int right = end_idx;
 
-  // Улучшенный выбор опорного элемента
   int a = arr[left];
   int b = arr[right];
-  int c = arr[left + (right - left) / 2];
+  int c = arr[left + ((right - left) / 2)];
 
-  // Медиана трех
-  int pivot_value;
+  int pivot_value = 0;
   if ((a > b) != (a > c)) {
     pivot_value = a;
   } else if ((b > a) != (b > c)) {

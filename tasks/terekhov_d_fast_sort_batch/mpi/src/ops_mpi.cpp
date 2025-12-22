@@ -71,10 +71,8 @@ std::pair<int, int> TerekhovDFastSortBatchMPI::PartitionArray(std::vector<int> &
   int left = start_idx;
   int right = end_idx;
 
-  // Выбор опорного элемента как медианы трех
-  int mid = left + (right - left) / 2;
+  int mid = left + ((right - left) / 2);
 
-  // Сортировка left, mid, right
   if (arr[right] < arr[left]) {
     std::swap(arr[left], arr[right]);
   }
@@ -143,7 +141,10 @@ void TerekhovDFastSortBatchMPI::CombineAndSelect(std::vector<int> &local_vec, st
                                                  bool take_smaller) {
   std::vector<int> combined(local_vec.size() + partner_vec.size());
 
-  size_t i = 0, j = 0, k = 0;
+  size_t i = 0;
+  size_t j = 0;
+  size_t k = 0;
+
   while (i < local_vec.size() && j < partner_vec.size()) {
     if (local_vec[i] <= partner_vec[j]) {
       combined[k++] = local_vec[i++];
@@ -161,9 +162,11 @@ void TerekhovDFastSortBatchMPI::CombineAndSelect(std::vector<int> &local_vec, st
   }
 
   if (!take_smaller) {
-    std::copy(combined.begin(), combined.begin() + local_vec.size(), local_vec.begin());
+    auto local_size = static_cast<std::ptrdiff_t>(local_vec.size());
+    std::copy(combined.begin(), combined.begin() + local_size, local_vec.begin());
   } else {
-    std::copy(combined.end() - local_vec.size(), combined.end(), local_vec.begin());
+    auto local_size = static_cast<std::ptrdiff_t>(local_vec.size());
+    std::copy(combined.end() - local_size, combined.end(), local_vec.begin());
   }
 }
 
