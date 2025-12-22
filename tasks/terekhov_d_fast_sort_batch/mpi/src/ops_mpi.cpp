@@ -106,24 +106,6 @@ void TerekhovDFastSortBatchMPI::BatcherOddEvenMerge(std::vector<int> &arr, int l
     temp[k++] = arr[j++];
   }
 
-  for (int step = 1; step < n; step *= 2) {
-    for (int start = 0; start + step < n; start += 2 * step) {
-      int end = std::min(start + 2 * step - 1, n - 1);
-      int middle = start + step - 1;
-
-      int idx1 = start;
-      int idx2 = middle + 1;
-
-      while (idx1 <= middle && idx2 <= end) {
-        if (temp[idx1] > temp[idx2]) {
-          std::swap(temp[idx1], temp[idx2]);
-        }
-        idx1++;
-        idx2++;
-      }
-    }
-  }
-
   for (int idx = 0; idx < n; idx++) {
     arr[left + idx] = temp[idx];
   }

@@ -14,28 +14,25 @@ class TerekhovDFastSortBatchPerfTests : public ppc::util::BaseRunPerfTests<InTyp
   InType input_data_;
 
   void SetUp() override {
-    int size = 150000;  // Увеличил размер
+    int size = 150000;
     input_data_.resize(size);
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dist(1, 2000000);  // Увеличил диапазон
+    std::uniform_int_distribution<int> dist(1, 2000000);
 
     for (int i = 0; i < size; i++) {
       input_data_[i] = dist(gen);
     }
 
-    // Изменил специальные значения
     input_data_[0] = -750000;
     input_data_[size - 1] = 2500000;
     input_data_[size / 2] = 777;
 
-    // Изменил дубликаты
     for (int i = 1; i <= 150; i++) {
       input_data_[(size / 3) + i] = 888888;
     }
 
-    // Добавил больше дубликатов в другом месте
     for (int i = 1; i <= 100; i++) {
       input_data_[(2 * size / 3) + i] = 333333;
     }
