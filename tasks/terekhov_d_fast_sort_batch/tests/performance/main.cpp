@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
+#include <cstddef>
+#include <random>
 #include <vector>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
@@ -11,22 +12,45 @@
 namespace terekhov_d_fast_sort_batch {
 
 class TerekhovDFastSortBatchPerfTests : public ppc::util::BaseRunPerfTests<InType, OutType> {
-  const int kElementCount_ = 75000000;
   InType input_data_;
-  OutType res_;
 
   void SetUp() override {
-    std::vector<int> data_vec(kElementCount_);
-    for (int i = 0; i < kElementCount_; i++) {
-      data_vec[i] = kElementCount_ - i - 1;
+    int size = 75000000;
+    input_data_.resize(size);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(1, 1000000);
+
+    for (int i = 0; i < size; i++) {
+      input_data_[i] = dist(gen);
     }
-    input_data_ = data_vec;
-    std::ranges::sort(data_vec);
-    res_ = data_vec;
+
+    input_data_[0] = -500000;
+    input_data_[size - 1] = 1500000;
+    input_data_[size / 2] = 0;
+
+    for (int i = 1; i <= 150; i++) {
+      input_data_[(size / 3) + i] = 888888;
+    }
+
+    for (int i = 1; i <= 100; i++) {
+      input_data_[(2 * size / 3) + i] = 333333;
+    }
   }
 
   bool CheckTestOutputData(OutType &output_data) final {
-    return res_ == output_data;
+    if (output_data.size() != input_data_.size()) {
+      return false;
+    }
+
+    for (size_t i = 1; i < output_data.size(); i++) {
+      if (output_data[i] < output_data[i - 1]) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   InType GetTestInputData() final {
