@@ -1,6 +1,7 @@
 #include "terekhov_d_fast_sort_batch/seq/include/ops_seq.hpp"
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
@@ -28,7 +29,7 @@ bool TerekhovDFastSortBatchSEQ::RunImpl() {
   }
 
   std::vector<int> sorted_buffer = input_data;
-  std::sort(sorted_buffer.begin(), sorted_buffer.end());
+  std::ranges::sort(sorted_buffer);
 
   GetOutput() = std::move(sorted_buffer);
   return true;

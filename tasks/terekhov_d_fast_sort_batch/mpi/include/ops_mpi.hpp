@@ -17,30 +17,30 @@ class TerekhovDFastSortBatchMPI : public BaseTask {
   explicit TerekhovDFastSortBatchMPI(const InType &in);
 
  private:
-  int process_rank_{};
-  int process_count_{};
+  int current_rank_{};
+  int total_processes_{};
 
   bool ValidationImpl() override;
   bool PreProcessingImpl() override;
   bool RunImpl() override;
   bool PostProcessingImpl() override;
 
-  void BroadcastArraySizes(std::size_t &actual_size, std::size_t &adjusted_size);
-  void DistributeArrayData(const std::size_t &adjusted_size, const std::vector<int> &adjusted_input,
-                           std::vector<int> &segment_sizes, std::vector<int> &segment_offsets,
-                           std::vector<int> &local_segment) const;
+  void BroadcastArrayDimensions(size_t &initial_size, size_t &expanded_size);
+  void DistributeArrayElements(const size_t &expanded_size, const std::vector<int> &expanded_input,
+                               std::vector<int> &portion_sizes, std::vector<int> &portion_starts,
+                               std::vector<int> &local_portion) const;
 
-  void GenerateComparatorPairs(std::vector<std::pair<int, int>> &comparator_pairs) const;
-  std::pair<std::vector<int>, std::vector<int>> static SeparateOddEven(const std::vector<int> &elements);
-  void static ConstructMergeNetwork(const std::vector<int> &upper_processes, const std::vector<int> &lower_processes,
-                                    std::vector<std::pair<int, int>> &comparator_pairs);
-  void static ConstructSortNetwork(const std::vector<int> &processes,
-                                   std::vector<std::pair<int, int>> &comparator_pairs);
+  void BuildComparatorSequence(std::vector<std::pair<int, int>> &comparator_list) const;
+  std::pair<std::vector<int>, std::vector<int>> static SplitByPosition(const std::vector<int> &items);
+  void static ConstructMergeStep(const std::vector<int> &top_group, const std::vector<int> &bottom_group,
+                                 std::vector<std::pair<int, int>> &comparator_list);
+  void static ConstructSortStep(const std::vector<int> &process_group,
+                                std::vector<std::pair<int, int>> &comparator_list);
 
-  void ExecuteComparatorPairs(const std::vector<int> &segment_sizes, std::vector<int> &local_segment,
-                              const std::vector<std::pair<int, int>> &comparator_pairs) const;
-  void static MergeDataSegments(const std::vector<int> &local_data, const std::vector<int> &partner_data,
-                                std::vector<int> &result_buffer, bool take_smaller_values);
+  void ExecuteComparators(const std::vector<int> &portion_sizes, std::vector<int> &local_portion,
+                          const std::vector<std::pair<int, int>> &comparator_list) const;
+  void static MergePortions(const std::vector<int> &local_data, const std::vector<int> &partner_data,
+                            std::vector<int> &result_buffer, bool take_minimal);
 };
 
 }  // namespace terekhov_d_fast_sort_batch
