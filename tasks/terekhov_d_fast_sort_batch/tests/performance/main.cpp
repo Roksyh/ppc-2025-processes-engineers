@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <random>
-#include <vector>
 
 #include "terekhov_d_fast_sort_batch/common/include/common.hpp"
 #include "terekhov_d_fast_sort_batch/mpi/include/ops_mpi.hpp"
