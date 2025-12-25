@@ -81,10 +81,66 @@ class TerekhovDFastSortBatchFuncTests : public ppc::util::BaseRunFuncTests<InTyp
                        -15,  750,  752,  753,  -900, 1054, 1056, 1058,  1200, -8,  -3};
         break;
 
-      default:
+      case 12:
         input_data_ = {7,  -15, 10,  150, -7, -2, 1,  63, 27, -10, 75, 34, -18, 13, 11, 12,  -30, 49, 66, -3,
                        2,  9,   3,   6,   16, 15, -8, -9, 18, 22,  25, 28, -45, 37, 41, -22, 21,  20, 43, -12,
                        31, 33,  -13, 36,  39, 40, 46, 48, 51, 52,  54, 55, 56,  57, 58, 59,  64,  67, 68, 69};
+        break;
+
+      case 13:
+        input_data_ = {8, 7, 6, 5, 4, 3, 2, 1};
+        break;
+
+      case 14:
+        input_data_ = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5};
+        break;
+
+      case 15:
+        input_data_ = {5, 5, 5, 2, 2, 2, 8, 8, 8, 1, 1, 1};
+        break;
+
+      case 16:
+        input_data_ = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+        break;
+
+      case 17:
+        input_data_ = {3, 1, 2};
+        break;
+
+      case 18:
+        input_data_ = {6, 5, 4, 3, 2, 1};
+        break;
+
+      case 19:
+        input_data_ = {7, 7, 7, 7, 7, 7, 7, 7};
+        break;
+
+      case 20:
+        input_data_ = {100, 1, 99, 2, 98, 3, 97, 4, 96, 5};
+        break;
+
+      case 21:
+        input_data_ = {1, 2, 2, 3, 3, 3, 4, 4, 4, 4};
+        break;
+
+      case 22:
+        input_data_ = {1000000, -1000000, 500000, -500000, 0, 750000, -750000};
+        break;
+
+      case 23:
+        input_data_ = {13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+        break;
+
+      case 24:
+        input_data_ = {1, 3, 2, 4, 3, 5, 4, 6, 5, 7, 6, 8};
+        break;
+
+      case 25:
+        input_data_ = {2147483647, -2147483648, 0, 100, -100, 2147483646, -2147483647};
+        break;
+
+      default:
+        input_data_ = {1, 2, 3, 4, 5};
     }
   }
 
@@ -130,7 +186,7 @@ TEST_P(TerekhovDFastSortBatchFuncTests, BatcherSortTest) {
   ExecuteTest(GetParam());
 }
 
-const std::array<TestType, 13> kTestParam = {std::make_tuple(0, "basic_case"),
+const std::array<TestType, 26> kTestParam = {std::make_tuple(0, "basic_case"),
                                              std::make_tuple(1, "with_negatives"),
                                              std::make_tuple(2, "with_duplicates"),
                                              std::make_tuple(3, "almost_sorted"),
@@ -140,9 +196,24 @@ const std::array<TestType, 13> kTestParam = {std::make_tuple(0, "basic_case"),
                                              std::make_tuple(7, "mixed_values"),
                                              std::make_tuple(8, "empty_array"),
                                              std::make_tuple(9, "two_elements"),
+
                                              std::make_tuple(10, "large_array_50"),
                                              std::make_tuple(11, "large_array_with_extremes"),
-                                             std::make_tuple(12, "very_large_array_60")};
+                                             std::make_tuple(12, "very_large_array_60"),
+
+                                             std::make_tuple(13, "eight_elements_reverse"),
+                                             std::make_tuple(14, "prime_size_11"),
+                                             std::make_tuple(15, "multiple_duplicates_groups"),
+                                             std::make_tuple(16, "sixteen_elements_power_of_two"),
+                                             std::make_tuple(17, "three_elements_small"),
+                                             std::make_tuple(18, "six_elements_even"),
+                                             std::make_tuple(19, "all_equal_elements"),
+                                             std::make_tuple(20, "alternating_high_low"),
+                                             std::make_tuple(21, "already_sorted_with_duplicates"),
+                                             std::make_tuple(22, "large_value_range"),
+                                             std::make_tuple(23, "thirteen_elements_prime"),
+                                             std::make_tuple(24, "sinusoidal_pattern"),
+                                             std::make_tuple(25, "int_extremes")};
 
 const auto kTestTasksList = std::tuple_cat(
     ppc::util::AddFuncTask<TerekhovDFastSortBatchMPI, InType>(kTestParam, PPC_SETTINGS_terekhov_d_fast_sort_batch),
